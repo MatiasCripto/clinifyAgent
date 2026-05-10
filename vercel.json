@@ -51,13 +51,4 @@
     }
   ],
 
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL":      "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "NEXT_PUBLIC_APP_URL":           "@app_url",
-    "EVOLUTION_API_URL":             "@evolution_api_url",
-    "EVOLUTION_API_KEY":             "@evolution_api_key",
-    "EVOLUTION_INSTANCE":            "@evolution_instance",
-    "N8N_WEBHOOK_BASE_URL":          "@n8n_webhook_base_url"
-  }
 }
