@@ -1,26 +1,193 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   OdontoCare SaaS — Design System
+   Inspired by: Stripe, Linear, Vercel, Notion
+   ============================================================ */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --brand:        #6366f1;
+  --brand-light:  #818cf8;
+  --brand-dark:   #4f46e5;
+  --brand-subtle: #eef2ff;
+
+  /* Neutrals */
+  --background:   #f8fafc;
+  --surface:      #ffffff;
+  --surface-2:    #f1f5f9;
+  --surface-3:    #e2e8f0;
+  --border:       #e2e8f0;
+  --border-2:     #cbd5e1;
+
+  /* Text */
+  --foreground:   #0f172a;
+  --muted:        #64748b;
+  --subtle:       #94a3b8;
+
+  /* Semantic */
+  --success:      #10b981;
+  --success-bg:   #f0fdf4;
+  --warning:      #f59e0b;
+  --warning-bg:   #fffbeb;
+  --danger:       #ef4444;
+  --danger-bg:    #fef2f2;
+  --info:         #06b6d4;
+  --info-bg:      #ecfeff;
+
+  /* Shadows */
+  --shadow-xs:    0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:    0 1px 4px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:    0 4px 12px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:    0 8px 24px rgba(0,0,0,.10), 0 4px 8px rgba(0,0,0,.06);
+
+  /* Radius */
+  --radius-sm:    6px;
+  --radius-md:    10px;
+  --radius-lg:    14px;
+  --radius-xl:    18px;
+  --radius-full:  9999px;
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+}
+
+/* Dark mode — system preference (only when not manually set to light) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background:   #0d1117;
+    --surface:      #161b22;
+    --surface-2:    #1c2128;
+    --surface-3:    #21262d;
+    --border:       #30363d;
+    --border-2:     #3d444d;
+    --foreground:   #e6edf3;
+    --muted:        #8b949e;
+    --subtle:       #656d76;
+    --brand-subtle: #1a1f6e;
+    --success-bg:   #0d2b1e;
+    --warning-bg:   #2b1f06;
+    --danger-bg:    #2b0f0f;
+    --info-bg:      #062428;
+  }
+}
+
+/* Dark mode — manual toggle via next-themes (adds .dark class to <html>) */
+.dark {
+  --background:   #0d1117;
+  --surface:      #161b22;
+  --surface-2:    #1c2128;
+  --surface-3:    #21262d;
+  --border:       #30363d;
+  --border-2:     #3d444d;
+  --foreground:   #e6edf3;
+  --muted:        #8b949e;
+  --subtle:       #656d76;
+  --brand-subtle: #1a1f6e;
+  --success-bg:   #0d2b1e;
+  --warning-bg:   #2b1f06;
+  --danger-bg:    #2b0f0f;
+  --info-bg:      #062428;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   Base Styles
+   ============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Scrollbar (Webkit)
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+
+/* ============================================================
+   Utility Classes
+   ============================================================ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-hover {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.status-confirmed  { background: var(--success-bg); color: #065f46; }
+.status-pending    { background: var(--warning-bg); color: #92400e; }
+.status-cancelled  { background: var(--danger-bg);  color: #991b1b; }
+.status-absent     { background: var(--surface-2);  color: var(--muted); }
+.status-completed  { background: var(--brand-subtle); color: var(--brand); }
+
+.dark .status-confirmed { color: #6ee7b7; }
+.dark .status-pending   { color: #fcd34d; }
+.dark .status-cancelled { color: #fca5a5; }
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.animate-fade-in         { animation: fade-in 0.2s ease forwards; }
+.animate-slide-in-right  { animation: slide-in-right 0.2s ease forwards; }
+
+/* ============================================================
+   Focus Visible
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }

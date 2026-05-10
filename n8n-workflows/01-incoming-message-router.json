@@ -1,0 +1,128 @@
+{
+  "name": "01 · Incoming Message Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Evolution API Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "messages.upsert",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "filter-message-events",
+      "name": "Is Message Event?",
+      "type": "n8n-nodes-base.if",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.key.fromMe }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "filter-outbound",
+      "name": "Skip Outbound?",
+      "type": "n8n-nodes-base.if",
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.item.json.data;\nconst jid = data.key?.remoteJid ?? '';\nconst phone = jid.replace(/@s\\.whatsapp\\.net$/, '').replace(/@c\\.us$/, '');\nconst text = data.message?.conversation || data.message?.extendedTextMessage?.text || data.message?.buttonsResponseMessage?.selectedButtonId || '';\nconst pushName = data.pushName || null;\nconst messageId = data.key?.id;\nconst timestamp = data.messageTimestamp;\n\nreturn [{ json: { phone, text, pushName, messageId, timestamp, jid, instance: $input.item.json.instance } }];"
+      },
+      "id": "extract-message",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXT_APP_URL }}/api/webhooks/whatsapp",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "phone", "value": "={{ $json.phone }}" },
+            { "name": "text", "value": "={{ $json.text }}" },
+            { "name": "pushName", "value": "={{ $json.pushName }}" },
+            { "name": "messageId", "value": "={{ $json.messageId }}" }
+          ]
+        },
+        "options": {
+          "response": { "response": { "neverError": true } }
+        }
+      },
+      "id": "forward-to-bot",
+      "name": "Forward to Bot Engine",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"skipped\": true }"
+      },
+      "id": "respond-skip",
+      "name": "Respond Skip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1340, 420]
+    }
+  ],
+  "connections": {
+    "Evolution API Webhook": {
+      "main": [[{ "node": "Is Message Event?", "type": "main", "index": 0 }]]
+    },
+    "Is Message Event?": {
+      "main": [
+        [{ "node": "Skip Outbound?", "type": "main", "index": 0 }],
+        [{ "node": "Respond Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Skip Outbound?": {
+      "main": [
+        [{ "node": "Respond Skip", "type": "main", "index": 0 }],
+        [{ "node": "Extract Message Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [[{ "node": "Forward to Bot Engine", "type": "main", "index": 0 }]]
+    },
+    "Forward to Bot Engine": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "whatsapp" }, { "name": "bot" }, { "name": "routing" }]
+}

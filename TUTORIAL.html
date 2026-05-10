@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OdontoCare SaaS — Tutorial de puesta en marcha</title>
+<style>
+  :root {
+    --brand: #6366f1;
+    --brand-light: #818cf8;
+    --bg: #ffffff;
+    --surface: #f8fafc;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --code-bg: #1e293b;
+    --code-text: #e2e8f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 40px;
+  }
+
+  /* ── Cover ── */
+  .cover {
+    text-align: center;
+    padding: 60px 0 50px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .cover-logo {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #6366f1, #818cf8);
+    border-radius: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.3);
+  }
+  .cover-logo span { color: white; font-size: 28px; font-weight: 800; }
+  .cover h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .cover h1 span { color: var(--brand); }
+  .cover p { color: var(--muted); font-size: 16px; max-width: 500px; margin: 0 auto 16px; }
+  .cover-badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .cover-badge {
+    padding: 4px 12px; border-radius: 100px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border);
+  }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 48px;
+  }
+  .toc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--brand); text-decoration: none; font-weight: 500; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Sections ── */
+  .section { margin-bottom: 52px; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 24px; padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  .section-num {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--brand); color: white;
+    font-weight: 800; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .section h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  .section h3 { font-size: 16px; font-weight: 700; margin: 24px 0 10px; color: var(--text); }
+  .section h4 { font-size: 13px; font-weight: 700; margin: 16px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .section p { margin-bottom: 12px; color: #334155; }
+
+  /* ── Callouts ── */
+  .callout {
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-left: 4px solid;
+    font-size: 13.5px;
+  }
+  .callout-info    { background: #eff6ff; border-color: #3b82f6; }
+  .callout-warning { background: #fffbeb; border-color: var(--warning); }
+  .callout-success { background: #f0fdf4; border-color: var(--success); }
+  .callout-danger  { background: #fef2f2; border-color: var(--danger); }
+  .callout strong  { display: block; margin-bottom: 4px; }
+
+  /* ── Code blocks ── */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  pre .comment { color: #64748b; }
+  pre .key     { color: #93c5fd; }
+  pre .val     { color: #86efac; }
+  pre .cmd     { color: #fde68a; }
+  pre .url     { color: #c4b5fd; }
+  code {
+    background: #f1f5f9;
+    color: #4f46e5;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12.5px;
+  }
+
+  /* ── Steps ── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 16px;
+    margin-bottom: 20px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+  }
+  .step-num {
+    counter-increment: step;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: white;
+    font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-body { flex: 1; }
+  .step-body strong { display: block; margin-bottom: 6px; font-size: 14px; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: var(--surface); text-align: left; padding: 10px 14px; font-weight: 700; border: 1px solid var(--border); }
+  td { padding: 9px 14px; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  td code { font-size: 12px; }
+
+  /* ── Architecture diagram ── */
+  .arch {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 12px;
+    padding: 28px;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    margin: 16px 0;
+  }
+  .arch .box { color: #93c5fd; }
+  .arch .arrow { color: #6ee7b7; }
+  .arch .label { color: #fde68a; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px; font-size: 12px; }
+    .cover { padding: 40px 0 30px; }
+    pre { font-size: 11px; }
+    .section { page-break-inside: avoid; }
+    .step { page-break-inside: avoid; }
+    a { color: inherit; }
+  }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* ── Badge inline ── */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 100px;
+    font-size: 11px; font-weight: 600;
+    background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+  .badge.green  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+  .badge.orange { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .badge.purple { background: #faf5ff; color: #7c3aed; border-color: #ddd6fe; }
+
+  /* ── Two columns ── */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .col {
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .col h4 { margin-top: 0; }
+
+  ul.checklist { list-style: none; padding: 0; }
+  ul.checklist li { padding: 4px 0; padding-left: 24px; position: relative; }
+  ul.checklist li::before { content: '✓'; position: absolute; left: 0; color: var(--success); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ COVER ══════════════ -->
+<div class="cover">
+  <div class="cover-logo"><span>O</span></div>
+  <h1><span>OdontoCare</span> SaaS</h1>
+  <p>Tutorial completo de puesta en marcha, configuración de WhatsApp y operación diaria</p>
+  <div class="cover-badges">
+    <span class="cover-badge">Next.js 16</span>
+    <span class="cover-badge">Supabase</span>
+    <span class="cover-badge">Evolution API</span>
+    <span class="cover-badge">n8n</span>
+    <span class="cover-badge">Vercel</span>
+    <span class="cover-badge">Docker</span>
+  </div>
+</div>
+
+<!-- ══════════════ TOC ══════════════ -->
+<div class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#s1">Arquitectura del sistema</a></li>
+    <li><a href="#s2">Prerequisitos</a></li>
+    <li><a href="#s3">Supabase — base de datos y auth</a></li>
+    <li><a href="#s4">Evolution API + número de WhatsApp</a></li>
+    <li><a href="#s5">n8n — motor de automatizaciones</a></li>
+    <li><a href="#s6">Variables de entorno</a></li>
+    <li><a href="#s7">Correr la app localmente</a></li>
+    <li><a href="#s8">Primer login y configuración inicial</a></li>
+    <li><a href="#s9">Importar los 15 workflows de n8n</a></li>
+    <li><a href="#s10">Deploy en Vercel (producción)</a></li>
+    <li><a href="#s11">Referencia rápida: URLs y comandos</a></li>
+    <li><a href="#s12">Troubleshooting frecuente</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════ S1 ══════════════ -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Arquitectura del sistema</h2>
+  </div>
+
+  <p>OdontoCare es una aplicación multi-tenant. Cada <strong>organización</strong> puede tener múltiples <strong>sedes</strong> (clínicas), y cada sede tiene su propio número de WhatsApp.</p>
+
+  <div class="arch">
+<span class="label">USUARIO (navegador)</span>
+       │
+       ▼
+<span class="box">┌─────────────────────────────────────┐</span>
+<span class="box">│   Next.js 16 App (Vercel / local)   │</span>
+<span class="box">│   /dashboard  /login  /api/*        │</span>
+<span class="box">└──────────┬──────────────┬───────────┘</span>
+           │              │
+     <span class="arrow">auth/data</span>       <span class="arrow">webhooks</span>
+           │              │
+           ▼              ▼
+<span class="box">┌─────────────┐   ┌─────────────────────┐</span>
+<span class="box">│  Supabase   │   │   Evolution API     │</span>
+<span class="box">│  (DB + Auth)│   │   (WhatsApp GW)     │</span>
+<span class="box">└─────────────┘   └──────────┬──────────┘</span>
+                             │
+                     <span class="arrow">mensajes entrantes</span>
+                             │
+                             ▼
+                  <span class="box">┌─────────────────┐</span>
+                  <span class="box">│   Bot Engine    │</span>
+                  <span class="box">│  (state machine)│</span>
+                  <span class="box">└────────┬────────┘</span>
+                           │
+                  <span class="arrow">triggers automáticos</span>
+                           │
+                           ▼
+                  <span class="box">┌─────────────────┐</span>
+                  <span class="box">│      n8n        │</span>
+                  <span class="box">│  15 workflows   │</span>
+                  <span class="box">└─────────────────┘</span>
+  </div>
+
+  <table>
+    <tr><th>Componente</th><th>Rol</th><th>Dónde corre</th></tr>
+    <tr><td><strong>Next.js</strong></td><td>UI + API routes</td><td>Vercel (prod) o <code>localhost:3000</code> (dev)</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>PostgreSQL + Auth + Storage</td><td>Cloud supabase.com (gratis hasta 500 MB)</td></tr>
+    <tr><td><strong>Evolution API</strong></td><td>Gateway WhatsApp Web</td><td>Docker en tu VPS o <code>localhost:8080</code></td></tr>
+    <tr><td><strong>n8n</strong></td><td>Automatizaciones y crons</td><td>Docker en tu VPS o <code>localhost:5678</code></td></tr>
+    <tr><td><strong>Redis</strong></td><td>Cola de ejecución de n8n</td><td>Docker (incluido en compose)</td></tr>
+    <tr><td><strong>PostgreSQL</strong></td><td>Metadata de n8n</td><td>Docker (incluido en compose)</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════ S2 ══════════════ -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Prerequisitos</h2>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h4>Para desarrollo local</h4>
+      <ul class="checklist">
+        <li>Node.js 20+ (<code>node -v</code>)</li>
+        <li>npm 10+ (<code>npm -v</code>)</li>
+        <li>Docker Desktop instalado y corriendo</li>
+        <li>Git</li>
+        <li>Cuenta en supabase.com (gratis)</li>
+        <li>Un teléfono Android o iPhone con WhatsApp</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>Para producción (VPS)</h4>
+      <ul class="checklist">
+        <li>VPS con Ubuntu 22.04 (mínimo 2 GB RAM)</li>
+        <li>Docker + Docker Compose instalados</li>
+        <li>Dominio apuntando al VPS</li>
+        <li>Nginx o Traefik como proxy reverso</li>
+        <li>Cuenta en vercel.com (gratis)</li>
+        <li>Número de WhatsApp dedicado (no tu número personal)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Sobre el número de WhatsApp</strong>
+    Evolution API usa WhatsApp Web (no la API oficial de Meta). El teléfono que vinculés tiene que mantenerse con internet y cargado. Para producción real, usá un número dedicado en un teléfono barato que quede siempre enchufado. La API oficial de Meta requiere verificación empresarial y cuesta dinero.
+  </div>
+</div>
+
+<!-- ══════════════ S3 ══════════════ -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>Supabase — base de datos y autenticación</h2>
+  </div>
+
+  <h3>3.1 Crear el proyecto</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Ir a supabase.com → New project</strong>
+        Elegir región más cercana (South America — São Paulo es la más cercana a Argentina). Anotar la <strong>Database password</strong> que se genera — la vas a necesitar.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Obtener las claves</strong>
+        Project Settings → API. Copiar:<br>
+        • <code>URL</code> → <code>NEXT_PUBLIC_SUPABASE_URL</code><br>
+        • <code>anon public</code> key → <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code><br>
+        • <code>service_role</code> key → <code>SUPABASE_SERVICE_KEY</code> (solo backend)
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Ejecutar la migración inicial</strong>
+        Ir a SQL Editor en Supabase Dashboard. Copiar y ejecutar el contenido del archivo:
+        <code>infrastructure/supabase/migrations/001_initial_schema.sql</code>
+      </div>
+    </div>
+  </div>
+
+  <h3>3.2 Crear el primer usuario</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Crear usuario en Authentication → Users → Add user</strong>
+        Ingresá tu email y una contraseña. Copiá el <code>User UID</code> generado.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Crear organización y perfil en SQL Editor</strong>
+        Reemplazá los valores y ejecutá:
+<pre><span class="comment">-- 1. Crear organización</span>
+INSERT INTO organizations (name, slug, plan)
+VALUES (<span class="val">'Mi Clínica Dental'</span>, <span class="val">'mi-clinica'</span>, <span class="val">'pro'</span>);
+
+<span class="comment">-- 2. Obtener el ID recién creado</span>
+SELECT id FROM organizations WHERE slug = <span class="val">'mi-clinica'</span>;
+
+<span class="comment">-- 3. Crear sede principal</span>
+INSERT INTO clinics (organization_id, name, address, phone, whatsapp_number, timezone)
+VALUES (
+  <span class="val">'&lt;ORG_ID&gt;'</span>,
+  <span class="val">'Sede Central'</span>,
+  <span class="val">'Av. Corrientes 1234, CABA'</span>,
+  <span class="val">'1100000000'</span>,
+  <span class="val">'5491100000000'</span>,  <span class="comment">-- formato: 54 + código área + número</span>
+  <span class="val">'America/Argentina/Buenos_Aires'</span>
+);
+
+<span class="comment">-- 4. Crear perfil para el usuario</span>
+INSERT INTO profiles (id, organization_id, full_name, role)
+VALUES (
+  <span class="val">'&lt;USER_UID&gt;'</span>,     <span class="comment">-- el UID de Supabase Auth</span>
+  <span class="val">'&lt;ORG_ID&gt;'</span>,
+  <span class="val">'Administrador'</span>,
+  <span class="val">'owner'</span>
+);</pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>3.3 Configurar Row Level Security (RLS)</h3>
+  <div class="callout callout-info">
+    <strong>ℹ La migración ya incluye las políticas RLS.</strong>
+    Cada usuario solo puede ver los datos de su organización. Si querés verificarlo, andá a Authentication → Policies en el Dashboard.
+  </div>
+
+  <h3>3.4 Habilitar Email Auth</h3>
+  <p>Authentication → Providers → Email → asegurate de que esté habilitado. Para producción, configurá un SMTP propio en Project Settings → Auth → SMTP Settings (Gmail, Resend, etc.).</p>
+</div>
+
+<!-- ══════════════ S4 ══════════════ -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>Evolution API — conectar número de WhatsApp</h2>
+  </div>
+
+  <h3>4.1 Levantar los servicios con Docker</h3>
+
+<pre><span class="comment"># Desde la carpeta del proyecto</span>
+<span class="cmd">cd odonto-saas</span>
+
+<span class="comment"># Copiar y editar variables (mínimo obligatorio: contraseñas)</span>
+<span class="cmd">cp .env.example .env</span>
+<span class="cmd">notepad .env</span>   <span class="comment"># Windows  |  nano .env  en Linux</span>
+
+<span class="comment"># Levantar todo</span>
+<span class="cmd">docker compose up -d</span>
+
+<span class="comment"># Ver que todos los contenedores estén "healthy"</span>
+<span class="cmd">docker compose ps</span></pre>
+
+  <p>Después de ~30 segundos deberías ver:</p>
+<pre>NAME              STATUS
+oc_postgres       running (healthy)
+oc_redis          running (healthy)
+oc_n8n            running (healthy)
+oc_n8n_worker     running
+oc_evolution      running</pre>
+
+  <h3>4.2 Crear instancia en Evolution API</h3>
+
+  <p>Evolution API tiene una interfaz Swagger en <code>http://localhost:8080/docs</code>. Usamos <code>curl</code> para crear la instancia (más rápido):</p>
+
+<pre><span class="comment"># Reemplazá YOUR_API_KEY con el valor de EVOLUTION_API_KEY en tu .env</span>
+<span class="cmd">curl -X POST http://localhost:8080/instance/create \
+  -H "apikey: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instanceName": "odontocare",
+    "qrcode": true,
+    "integration": "WHATSAPP-BAILEYS"
+  }'</span></pre>
+
+  <div class="callout callout-success">
+    <strong>✓ Respuesta esperada</strong>
+    Vas a recibir un JSON con <code>"status": "created"</code> y un QR code en base64. También podés ver el QR en el Dashboard de Evolution.
+  </div>
+
+  <h3>4.3 Escanear el código QR con tu celular</h3>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Abrir WhatsApp en el teléfono dedicado</strong>
+        Menú (3 puntos) → Dispositivos vinculados → Vincular un dispositivo
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Obtener el QR desde la API</strong>
+<pre><span class="cmd">curl http://localhost:8080/instance/connect/odontocare \
+  -H "apikey: YOUR_API_KEY"</span></pre>
+        La respuesta tiene un campo <code>"base64"</code>. Pegá ese valor en <a href="https://base64.guru/converter/decode/image">base64.guru</a> para ver la imagen del QR, o usá el Dashboard de Evolution en <code>http://localhost:8080/manager</code>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Escanear el QR con la cámara del teléfono</strong>
+        Una vez escaneado, el estado de la instancia pasa a <code>"open"</code>. Verificar:
+<pre><span class="cmd">curl http://localhost:8080/instance/fetchInstances \
+  -H "apikey: YOUR_API_KEY"</span>
+<span class="comment"># Buscar: "connectionStatus": "open"</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>4.4 Configurar el webhook</h3>
+
+  <p>Le decimos a Evolution API que mande los mensajes entrantes a nuestra app:</p>
+
+<pre><span class="cmd">curl -X POST http://localhost:8080/webhook/set/odontocare \
+  -H "apikey: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "http://host.docker.internal:3000/api/webhooks/whatsapp",
+    "webhook_by_events": false,
+    "webhook_base64": false,
+    "events": ["MESSAGES_UPSERT"]
+  }'</span></pre>
+
+  <div class="callout callout-info">
+    <strong>ℹ <code>host.docker.internal</code></strong>
+    Es la dirección que usa Docker para acceder al localhost del host. En producción reemplazás por la URL real de tu app: <code>https://tu-app.vercel.app/api/webhooks/whatsapp</code>
+  </div>
+
+  <h3>4.5 Probar que el bot responde</h3>
+
+  <p>Mandá un mensaje de otro celular al número vinculado. En los logs de tu app deberías ver la petición entrante:</p>
+
+<pre><span class="comment"># Tail de logs de la app (una vez levantada con npm run dev)</span>
+<span class="cmd">npm run dev</span>
+<span class="comment"># En otra terminal, mirá los logs de Evolution:</span>
+<span class="cmd">docker compose logs -f evolution</span></pre>
+
+  <h3>4.6 Agregar múltiples sedes con distintos números</h3>
+
+  <p>Cada sede puede tener su propia instancia. Repetí los pasos 4.2 y 4.3 con otro nombre de instancia:</p>
+
+<pre><span class="comment"># Instancia para "Sede Norte"</span>
+<span class="cmd">curl -X POST http://localhost:8080/instance/create \
+  -H "apikey: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instanceName": "odontocare-norte",
+    "qrcode": true,
+    "integration": "WHATSAPP-BAILEYS"
+  }'</span></pre>
+
+  <p>En la base de datos, actualizás el campo <code>whatsapp_number</code> de cada clínica con el número correspondiente, y en el código el bot busca qué instancia usar según la sede activa.</p>
+</div>
+
+<!-- ══════════════ S5 ══════════════ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>n8n — motor de automatizaciones</h2>
+  </div>
+
+  <p>n8n ya levantó con Docker Compose. Accedés en <code>http://localhost:5678</code>.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Primer login</strong>
+        Usuario y contraseña son los que pusiste en <code>N8N_BASIC_AUTH_USER</code> y <code>N8N_BASIC_AUTH_PASSWORD</code> en el <code>.env</code>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Configurar credenciales de Supabase en n8n</strong>
+        Settings → Credentials → New → buscar "HTTP Request Auth" o "Postgres".<br>
+        Para las calls REST a Supabase: URL base = <code>https://tu-project.supabase.co/rest/v1</code>, header <code>apikey: tu-service-role-key</code>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Importar los workflows</strong>
+        Ver Sección 9 de este tutorial.
+      </div>
+    </div>
+  </div>
+
+  <h3>Variables de entorno en n8n</h3>
+  <p>Los workflows usan expresiones como <code>{{ $env.SUPABASE_URL }}</code>. Configurar en Settings → Variables:</p>
+
+  <table>
+    <tr><th>Variable</th><th>Valor</th></tr>
+    <tr><td><code>SUPABASE_URL</code></td><td>Tu URL de Supabase</td></tr>
+    <tr><td><code>SUPABASE_SERVICE_KEY</code></td><td>Service role key</td></tr>
+    <tr><td><code>EVOLUTION_API_URL</code></td><td><code>http://evolution:8080</code> (dentro de Docker) o la URL pública</td></tr>
+    <tr><td><code>EVOLUTION_API_KEY</code></td><td>Tu API key de Evolution</td></tr>
+    <tr><td><code>EVOLUTION_INSTANCE</code></td><td><code>odontocare</code></td></tr>
+    <tr><td><code>SMTP_HOST</code></td><td>smtp.gmail.com</td></tr>
+    <tr><td><code>SMTP_PORT</code></td><td>587</td></tr>
+    <tr><td><code>SMTP_USER</code></td><td>tu@email.com</td></tr>
+    <tr><td><code>SMTP_PASS</code></td><td>App password de Gmail</td></tr>
+    <tr><td><code>CLINIC_MANAGER_EMAIL</code></td><td>gerente@clinica.com</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════ S6 ══════════════ -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>Variables de entorno — referencia completa</h2>
+  </div>
+
+  <p>Crear el archivo <code>.env.local</code> en la raíz del proyecto <code>odonto-saas/</code>:</p>
+
+<pre><span class="comment"># ── Supabase ──────────────────────────────────────────────────</span>
+<span class="key">NEXT_PUBLIC_SUPABASE_URL</span>=<span class="val">https://abcdefgh.supabase.co</span>
+<span class="key">NEXT_PUBLIC_SUPABASE_ANON_KEY</span>=<span class="val">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</span>
+<span class="key">SUPABASE_SERVICE_KEY</span>=<span class="val">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</span>
+<span class="key">SUPABASE_URL</span>=<span class="val">https://abcdefgh.supabase.co</span>
+
+<span class="comment"># ── Evolution API (WhatsApp) ──────────────────────────────────</span>
+<span class="key">EVOLUTION_API_URL</span>=<span class="val">http://localhost:8080</span>
+<span class="key">EVOLUTION_API_KEY</span>=<span class="val">mi-api-key-super-secreta</span>
+<span class="key">EVOLUTION_INSTANCE</span>=<span class="val">odontocare</span>
+
+<span class="comment"># ── n8n ───────────────────────────────────────────────────────</span>
+<span class="key">N8N_WEBHOOK_BASE_URL</span>=<span class="val">http://localhost:5678/webhook</span>
+<span class="key">NEXT_PUBLIC_APP_URL</span>=<span class="val">http://localhost:3000</span>
+
+<span class="comment"># ── Email ─────────────────────────────────────────────────────</span>
+<span class="key">SMTP_HOST</span>=<span class="val">smtp.gmail.com</span>
+<span class="key">SMTP_PORT</span>=<span class="val">587</span>
+<span class="key">SMTP_USER</span>=<span class="val">tu@gmail.com</span>
+<span class="key">SMTP_PASS</span>=<span class="val">xxxx xxxx xxxx xxxx</span>   <span class="comment"># App Password de Google</span>
+<span class="key">CLINIC_MANAGER_EMAIL</span>=<span class="val">gerente@clinica.com</span>
+<span class="key">CLINIC_STAFF_EMAIL</span>=<span class="val">recepcion@clinica.com</span></pre>
+
+  <div class="callout callout-warning">
+    <strong>⚠ NUNCA commitees .env.local a Git</strong>
+    Está en <code>.gitignore</code> por defecto. Las variables <code>NEXT_PUBLIC_*</code> son visibles en el browser — no pongas secrets ahí. Las demás solo viven en el servidor.
+  </div>
+
+  <h3>App Password de Gmail</h3>
+  <p>Si usás Gmail para enviar emails: myaccount.google.com → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones. Generás una contraseña de 16 caracteres para "Correo" y la usás como <code>SMTP_PASS</code>.</p>
+</div>
+
+<!-- ══════════════ S7 ══════════════ -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Correr la app localmente</h2>
+  </div>
+
+<pre><span class="comment"># 1. Instalar dependencias</span>
+<span class="cmd">cd odonto-saas</span>
+<span class="cmd">npm install</span>
+
+<span class="comment"># 2. Levantar servicios Docker (si no están corriendo)</span>
+<span class="cmd">docker compose up -d</span>
+
+<span class="comment"># 3. Iniciar Next.js en modo desarrollo</span>
+<span class="cmd">npm run dev</span>
+
+<span class="comment"># La app abre en:</span>
+<span class="url">http://localhost:3000</span>
+
+<span class="comment"># Si no tenés .env.local, la app funciona en modo demo</span>
+<span class="comment"># (datos simulados, sin Supabase real)</span></pre>
+
+  <div class="callout callout-success">
+    <strong>✓ Modo demo</strong>
+    Sin variables de entorno configuradas, la app arranca igual con datos de muestra hardcodeados. Esto te permite explorar la UI antes de tener todo el backend listo.
+  </div>
+
+  <h3>Build de producción local</h3>
+<pre><span class="cmd">npm run build</span>
+<span class="cmd">npm run start</span>
+<span class="comment"># Corre la versión optimizada en localhost:3000</span></pre>
+</div>
+
+<!-- ══════════════ S8 ══════════════ -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Primer login y configuración inicial</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Acceder a <code>http://localhost:3000/login</code></strong>
+        Ingresar con el email y contraseña del usuario creado en Supabase (sección 3.2, paso 4).
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Verificar el selector de sedes</strong>
+        En la sidebar izquierda vas a ver el nombre de tu organización y el selector de sedes. Si creaste más de una sede en Supabase, podés cambiar entre ellas desde ahí.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Ir a Configuración → Integraciones</strong>
+        Completar la URL y API Key de Evolution API. Copiar la URL del webhook generada automáticamente y usarla en el paso 4.4 de este tutorial.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Ir a Configuración → Organización</strong>
+        Actualizar el nombre de la organización, slug, y datos de la sede.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Agregar profesionales y especialidades</strong>
+        Desde el menú Profesionales → Agregar. Los profesionales se asocian a una sede y especialidad específica.
+      </div>
+    </div>
+  </div>
+
+  <h3>Roles disponibles</h3>
+  <table>
+    <tr><th>Rol</th><th>Puede ver</th><th>Puede editar</th><th>Acceso a integraciones</th></tr>
+    <tr><td><span class="badge purple">owner</span></td><td>Todo</td><td>Todo</td><td>✓</td></tr>
+    <tr><td><span class="badge">admin</span></td><td>Todo</td><td>Todo excepto billing</td><td>✓</td></tr>
+    <tr><td><span class="badge orange">staff</span></td><td>Turnos, pacientes, mensajes</td><td>Turnos y pacientes</td><td>✗</td></tr>
+    <tr><td><span class="badge green">viewer</span></td><td>Solo lectura</td><td>Nada</td><td>✗</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════ S9 ══════════════ -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <h2>Importar los 15 workflows de n8n</h2>
+  </div>
+
+  <h3>9.1 Importar todos de una vez</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Abrir n8n en <code>http://localhost:5678</code></strong>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Workflows → Import from File</strong>
+        Los archivos JSON están en <code>odonto-saas/n8n-workflows/</code>.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Importar uno por uno o todos juntos</strong>
+        n8n permite importar cada archivo <code>.json</code> individualmente. Recomendado: empezar por el 01 y terminar en el 15.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Asignar credenciales</strong>
+        Después de importar, cada workflow muestra los nodos con credenciales faltantes en rojo. Hacer click en cada nodo rojo y seleccionar la credencial correspondiente que ya cargaste en el paso 5.2.
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Activar los workflows</strong>
+        Toggle ON en cada workflow. Los de tipo "Schedule Trigger" corren solos en los horarios definidos.
+      </div>
+    </div>
+  </div>
+
+  <h3>9.2 Descripción de los 15 workflows</h3>
+  <table>
+    <tr><th>#</th><th>Nombre</th><th>Trigger</th><th>Función</th></tr>
+    <tr><td>01</td><td>Incoming Message Router</td><td>Webhook</td><td>Recibe msgs de Evolution API y los envía al bot</td></tr>
+    <tr><td>02</td><td>New Patient Registration</td><td>Webhook</td><td>Registra paciente nuevo → envía WA de bienvenida</td></tr>
+    <tr><td>03</td><td>Appointment Booking</td><td>Webhook</td><td>Crea turno en Supabase → confirma por WA</td></tr>
+    <tr><td>04</td><td>Reminder 24h</td><td>Cron cada 1h</td><td>Envía recordatorio 24hs antes del turno</td></tr>
+    <tr><td>05</td><td>Reminder 1h</td><td>Cron cada 15min</td><td>Envía recordatorio 1h antes del turno</td></tr>
+    <tr><td>06</td><td>Post-appointment NPS</td><td>Cron cada 30min</td><td>Envía encuesta NPS 2h después del turno</td></tr>
+    <tr><td>07</td><td>NPS Response Handler</td><td>Webhook</td><td>Clasifica respuesta → alerta si detractor</td></tr>
+    <tr><td>08</td><td>Churn Detection</td><td>Cron diario 8:00</td><td>Calcula riesgo de abandono por paciente</td></tr>
+    <tr><td>09</td><td>Churn Recovery Campaign</td><td>Cron lunes 10:00</td><td>Envía campaña de recuperación por WA</td></tr>
+    <tr><td>10</td><td>Google Calendar Sync</td><td>Webhook</td><td>Sincroniza turnos con Google Calendar</td></tr>
+    <tr><td>11</td><td>Human Handoff Notify</td><td>Webhook</td><td>Notifica por email+Slack cuando bot escala</td></tr>
+    <tr><td>12</td><td>Appointment Cancellation</td><td>Webhook</td><td>Cancela turno + elimina evento de Calendar</td></tr>
+    <tr><td>13</td><td>Missed Appointment Followup</td><td>Cron diario 20:00</td><td>WA de seguimiento a pacientes ausentes</td></tr>
+    <tr><td>14</td><td>Daily Analytics Snapshot</td><td>Cron diario 23:00</td><td>Calcula métricas del día y las guarda</td></tr>
+    <tr><td>15</td><td>Weekly Report</td><td>Cron lunes 9:00</td><td>Email con reporte semanal al gerente</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════ S10 ══════════════ -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <h2>Deploy en Vercel (producción)</h2>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Instalar Vercel CLI</strong>
+<pre><span class="cmd">npm install -g vercel</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Login y linkear el proyecto</strong>
+<pre><span class="cmd">cd odonto-saas</span>
+<span class="cmd">vercel login</span>
+<span class="cmd">vercel link</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Cargar los secrets de Vercel</strong>
+        El <code>vercel.json</code> referencia <code>@nombre_secret</code>. Cargarlos así:
+<pre><span class="cmd">vercel secrets add supabase_url "https://tu-project.supabase.co"</span>
+<span class="cmd">vercel secrets add supabase_anon_key "eyJ..."</span>
+<span class="cmd">vercel secrets add evolution_api_url "https://tu-vps.com:8080"</span>
+<span class="cmd">vercel secrets add evolution_api_key "tu-api-key"</span>
+<span class="cmd">vercel secrets add evolution_instance "odontocare"</span>
+<span class="cmd">vercel secrets add app_url "https://tu-app.vercel.app"</span>
+<span class="cmd">vercel secrets add n8n_webhook_base_url "https://tu-vps.com:5678/webhook"</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Deploy</strong>
+<pre><span class="cmd">vercel --prod</span>
+<span class="comment"># O conectar el repo de GitHub para auto-deploy en cada push</span></pre>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Actualizar el webhook de Evolution API</strong>
+        Una vez deployado, actualizar la URL del webhook con la URL real de Vercel:
+<pre><span class="cmd">curl -X POST https://tu-vps.com:8080/webhook/set/odontocare \
+  -H "apikey: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://tu-app.vercel.app/api/webhooks/whatsapp",
+    "events": ["MESSAGES_UPSERT"]
+  }'</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-warning">
+    <strong>⚠ Docker en producción</strong>
+    El <code>docker-compose.yml</code> es para n8n y Evolution API que corren en un VPS (no en Vercel). Vercel solo hostea la app Next.js. Los servicios de Docker necesitan un VPS con IP pública y dominio, o podés usar servicios cloud:
+    <br>• <strong>n8n</strong>: n8n.cloud (tienen plan gratuito limitado)
+    <br>• <strong>Evolution API</strong>: necesita sí o sí un servidor propio por la conexión de WhatsApp Web
+  </div>
+</div>
+
+<!-- ══════════════ S11 ══════════════ -->
+<div class="section" id="s11">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <h2>Referencia rápida: URLs y comandos</h2>
+  </div>
+
+  <table>
+    <tr><th>Servicio</th><th>URL local</th><th>URL en producción</th></tr>
+    <tr><td>App OdontoCare</td><td><code>http://localhost:3000</code></td><td><code>https://tu-app.vercel.app</code></td></tr>
+    <tr><td>Dashboard n8n</td><td><code>http://localhost:5678</code></td><td><code>https://tu-vps.com:5678</code></td></tr>
+    <tr><td>Evolution API</td><td><code>http://localhost:8080</code></td><td><code>https://tu-vps.com:8080</code></td></tr>
+    <tr><td>Evolution Swagger</td><td><code>http://localhost:8080/docs</code></td><td>ídem</td></tr>
+    <tr><td>Evolution Manager</td><td><code>http://localhost:8080/manager</code></td><td>ídem</td></tr>
+    <tr><td>Supabase Dashboard</td><td>—</td><td><code>https://supabase.com/dashboard</code></td></tr>
+    <tr><td>Health check</td><td><code>http://localhost:3000/health</code></td><td><code>https://tu-app.vercel.app/health</code></td></tr>
+    <tr><td>Webhook WhatsApp</td><td><code>http://localhost:3000/api/webhooks/whatsapp</code></td><td>ídem en Vercel</td></tr>
+  </table>
+
+  <h3>Comandos de uso frecuente</h3>
+<pre><span class="comment"># Ver estado de todos los contenedores</span>
+<span class="cmd">docker compose ps</span>
+
+<span class="comment"># Reiniciar un servicio específico</span>
+<span class="cmd">docker compose restart evolution</span>
+
+<span class="comment"># Ver logs en tiempo real</span>
+<span class="cmd">docker compose logs -f n8n evolution</span>
+
+<span class="comment"># Parar todo (sin borrar datos)</span>
+<span class="cmd">docker compose stop</span>
+
+<span class="comment"># Estado de la instancia de WhatsApp</span>
+<span class="cmd">curl http://localhost:8080/instance/fetchInstances -H "apikey: TU_KEY"</span>
+
+<span class="comment"># Enviar mensaje de prueba desde la API</span>
+<span class="cmd">curl -X POST http://localhost:8080/message/sendText/odontocare \
+  -H "apikey: TU_KEY" -H "Content-Type: application/json" \
+  -d '{"number": "5491100000000", "text": "Hola desde OdontoCare!"}'</span>
+
+<span class="comment"># Deploy en Vercel</span>
+<span class="cmd">vercel --prod</span>
+
+<span class="comment"># Ver logs de Vercel</span>
+<span class="cmd">vercel logs tu-app.vercel.app</span></pre>
+</div>
+
+<!-- ══════════════ S12 ══════════════ -->
+<div class="section" id="s12">
+  <div class="section-header">
+    <div class="section-num">12</div>
+    <h2>Troubleshooting frecuente</h2>
+  </div>
+
+  <h3>❌ "La app carga pero no hay datos reales"</h3>
+  <p>Falta el archivo <code>.env.local</code> o las variables de Supabase están mal. Verificar que <code>NEXT_PUBLIC_SUPABASE_URL</code> y <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> estén correctas. La app funciona en modo demo sin Supabase.</p>
+
+  <h3>❌ "Error al hacer login: invalid credentials"</h3>
+  <p>El usuario debe existir en Supabase Authentication AND en la tabla <code>profiles</code>. Si está en Auth pero no en profiles, el login funciona pero la app no carga el perfil. Verificar con el SQL del paso 3.2.</p>
+
+  <h3>❌ "Evolution API status: close (no conectado)"</h3>
+  <p>El QR expiró o la sesión de WhatsApp Web se cerró. Reconectar:</p>
+<pre><span class="cmd">curl -X DELETE http://localhost:8080/instance/logout/odontocare -H "apikey: TU_KEY"</span>
+<span class="cmd">curl http://localhost:8080/instance/connect/odontocare -H "apikey: TU_KEY"</span>
+<span class="comment"># Escanear QR nuevamente</span></pre>
+
+  <h3>❌ "El bot no responde a mensajes"</h3>
+  <ol style="padding-left: 20px; margin: 8px 0;">
+    <li>Verificar que el webhook de Evolution esté configurado con la URL correcta</li>
+    <li>Verificar que Next.js esté corriendo (<code>npm run dev</code>)</li>
+    <li>Ver los logs: <code>docker compose logs evolution</code></li>
+    <li>Verificar en Evolution que la instancia está en estado "open"</li>
+    <li>El bot ignora mensajes del propio número (campo <code>fromMe: true</code>)</li>
+  </ol>
+
+  <h3>❌ "n8n workflows no se activan"</h3>
+  <p>Verificar que los workflows estén con toggle ON. Para los de tipo webhook, la URL que n8n genera debe ser accesible desde Evolution API. Si ambos corren en Docker, usar el nombre del servicio: <code>http://n8n:5678/webhook/...</code></p>
+
+  <h3>❌ "Build de Next.js falla"</h3>
+<pre><span class="comment"># Limpiar cache y reinstalar</span>
+<span class="cmd">rm -rf .next node_modules</span>
+<span class="cmd">npm install</span>
+<span class="cmd">npm run build</span></pre>
+
+  <h3>❌ "WhatsApp se desconecta solo"</h3>
+  <p>WhatsApp Web cierra la sesión si el teléfono no tiene internet o si WhatsApp detecta actividad inusual. Soluciones:</p>
+  <ul style="padding-left: 20px; margin: 8px 0;">
+    <li>Usar un teléfono dedicado siempre encendido y conectado a WiFi</li>
+    <li>Activar <code>keepAliveIntervalMs</code> en la configuración de la instancia de Evolution</li>
+    <li>Configurar alertas para cuando el estado pase a "close" (workflow 11 puede adaptarse para esto)</li>
+  </ul>
+
+  <hr class="divider">
+
+  <div class="callout callout-success">
+    <strong>✓ Sistema completo</strong>
+    Con todos estos pasos configurados, OdontoCare corre con: autenticación real por Supabase, bot de WhatsApp activo, 15 automatizaciones de n8n funcionando, y la app deployada en Vercel. El modo demo siempre está disponible para mostrarle la plataforma a un cliente sin necesidad de conectar nada.
+  </div>
+
+  <p style="margin-top: 32px; color: var(--muted); font-size: 12px; text-align: center;">
+    OdontoCare SaaS — Generado con Claude Code · 2026
+  </p>
+</div>
+
+</body>
+</html>

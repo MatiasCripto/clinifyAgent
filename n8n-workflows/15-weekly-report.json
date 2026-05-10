@@ -1,0 +1,74 @@
+{
+  "name": "15 · Weekly BI Report (Email)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 9 * * 1" }]
+        }
+      },
+      "id": "cron",
+      "name": "Monday 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 86400000);\nreturn [{ json: {\n  start: weekAgo.toISOString(),\n  end: now.toISOString(),\n  weekLabel: `${weekAgo.toLocaleDateString('es-AR')} — ${now.toLocaleDateString('es-AR')}`\n} }];"
+      },
+      "id": "set-window",
+      "name": "Set Week Window",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/analytics_daily?date=gte.{{ $json.start.slice(0,10) }}&order=date.asc",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",         "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization",  "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "id": "fetch-analytics",
+      "name": "Fetch Week Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = Array.isArray($input.item.json) ? $input.item.json : [];\nconst total     = rows.reduce((s, r) => s + (r.total_appointments || 0), 0);\nconst confirmed = rows.reduce((s, r) => s + (r.confirmed_appointments || 0), 0);\nconst cancelled = rows.reduce((s, r) => s + (r.cancelled_appointments || 0), 0);\nconst botBookings = rows.reduce((s, r) => s + (r.bot_bookings || 0), 0);\nconst cancelRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;\nconst botRate    = total > 0 ? Math.round((botBookings / total) * 100) : 0;\nconst weekLabel = $('Set Week Window').item.json.weekLabel;\nconst html = `\n<h2 style=\"font-family:sans-serif;color:#6366f1\">📊 Reporte Semanal — OdontoCare</h2>\n<p style=\"color:#888;font-family:sans-serif\">${weekLabel}</p>\n<table style=\"border-collapse:collapse;font-family:sans-serif;width:100%;max-width:500px\">\n  <tr style=\"background:#f5f5f5\"><th style=\"padding:10px;text-align:left\">Métrica</th><th style=\"padding:10px;text-align:right\">Valor</th></tr>\n  <tr><td style=\"padding:10px;border-bottom:1px solid #eee\">Total turnos</td><td style=\"padding:10px;text-align:right;font-weight:bold\">${total}</td></tr>\n  <tr><td style=\"padding:10px;border-bottom:1px solid #eee\">Confirmados</td><td style=\"padding:10px;text-align:right;color:#10b981;font-weight:bold\">${confirmed}</td></tr>\n  <tr><td style=\"padding:10px;border-bottom:1px solid #eee\">Cancelados</td><td style=\"padding:10px;text-align:right;color:#ef4444;font-weight:bold\">${cancelled} (${cancelRate}%)</td></tr>\n  <tr><td style=\"padding:10px;border-bottom:1px solid #eee\">Agendados por bot</td><td style=\"padding:10px;text-align:right;color:#6366f1;font-weight:bold\">${botBookings} (${botRate}%)</td></tr>\n</table>\n<p style=\"font-family:sans-serif;color:#888;font-size:12px\">Generado automáticamente por OdontoCare BI · ${new Date().toLocaleString('es-AR')}</p>\n`;\nreturn [{ json: { html, total, confirmed, cancelled, cancelRate, botRate, weekLabel } }];"
+      },
+      "id": "build-report",
+      "name": "Build HTML Report",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.ALERT_FROM_EMAIL }}",
+        "toEmail":   "={{ $env.CLINIC_MANAGER_EMAIL }}",
+        "subject":   "📊 Reporte Semanal OdontoCare — {{ $json.weekLabel }}",
+        "emailType": "html",
+        "message":   "={{ $json.html }}"
+      },
+      "id": "send-report",
+      "name": "Send Weekly Report",
+      "type": "n8n-nodes-base.sendEmail",
+      "credentials": { "smtp": { "name": "SMTP OdontoCare" } },
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Monday 09:00": { "main": [[{ "node": "Set Week Window", "type": "main", "index": 0 }]] },
+    "Set Week Window": { "main": [[{ "node": "Fetch Week Analytics", "type": "main", "index": 0 }]] },
+    "Fetch Week Analytics": { "main": [[{ "node": "Build HTML Report", "type": "main", "index": 0 }]] },
+    "Build HTML Report": { "main": [[{ "node": "Send Weekly Report", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "reporting" }, { "name": "email" }, { "name": "scheduled" }]
+}

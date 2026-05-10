@@ -1,0 +1,125 @@
+{
+  "name": "10 · Google Calendar Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "calendar-sync",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Appointment Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "created",   "operator": { "type": "string", "operation": "equals" } }], "output": 0 },
+            { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "updated",   "operator": { "type": "string", "operation": "equals" } }], "output": 1 },
+            { "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "cancelled", "operator": { "type": "string", "operation": "equals" } }], "output": 2 }
+          ]
+        }
+      },
+      "id": "route-action",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "calendar": "={{ $env.GOOGLE_CALENDAR_ID }}",
+        "start": "={{ $('Appointment Event Webhook').item.json.starts_at }}",
+        "end":   "={{ $('Appointment Event Webhook').item.json.ends_at }}",
+        "additionalFields": {
+          "summary":     "🦷 {{ $('Appointment Event Webhook').item.json.patient_name }} — {{ $('Appointment Event Webhook').item.json.treatment }}",
+          "description": "Paciente: {{ $('Appointment Event Webhook').item.json.patient_name }}\nProfesional: {{ $('Appointment Event Webhook').item.json.professional_name }}\nTeléfono: {{ $('Appointment Event Webhook').item.json.patient_phone }}\nOrigen: {{ $('Appointment Event Webhook').item.json.source }}",
+          "location":    "OdontoCare — Av. Colón 1234, Córdoba",
+          "colorId":     "9",
+          "attendees": "={{ [{ email: $('Appointment Event Webhook').item.json.professional_email }] }}"
+        }
+      },
+      "id": "create-event",
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "credentials": { "googleCalendarOAuth2Api": { "name": "Google Calendar OdontoCare" } },
+      "position": [680, 160]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": "={{ $env.GOOGLE_CALENDAR_ID }}",
+        "eventId":  "={{ $('Appointment Event Webhook').item.json.google_event_id }}",
+        "updateFields": {
+          "summary":     "🦷 {{ $('Appointment Event Webhook').item.json.patient_name }} — {{ $('Appointment Event Webhook').item.json.treatment }}",
+          "start": "={{ $('Appointment Event Webhook').item.json.starts_at }}",
+          "end":   "={{ $('Appointment Event Webhook').item.json.ends_at }}"
+        }
+      },
+      "id": "update-event",
+      "name": "Update Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "credentials": { "googleCalendarOAuth2Api": { "name": "Google Calendar OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": "={{ $env.GOOGLE_CALENDAR_ID }}",
+        "eventId":  "={{ $('Appointment Event Webhook').item.json.google_event_id }}"
+      },
+      "id": "delete-event",
+      "name": "Delete Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "credentials": { "googleCalendarOAuth2Api": { "name": "Google Calendar OdontoCare" } },
+      "position": [680, 440]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [{ "keyName": "id", "keyValue": "={{ $('Appointment Event Webhook').item.json.appointment_id }}" }]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "google_event_id", "fieldValue": "={{ $json.id }}" }
+          ]
+        }
+      },
+      "id": "save-event-id",
+      "name": "Save Google Event ID",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [900, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Appointment Event Webhook": { "main": [[{ "node": "Route by Action", "type": "main", "index": 0 }]] },
+    "Route by Action": {
+      "main": [
+        [{ "node": "Create Calendar Event", "type": "main", "index": 0 }],
+        [{ "node": "Update Calendar Event", "type": "main", "index": 0 }],
+        [{ "node": "Delete Calendar Event", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Calendar Event": { "main": [[{ "node": "Save Google Event ID", "type": "main", "index": 0 }]] },
+    "Save Google Event ID":  { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Update Calendar Event": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] },
+    "Delete Calendar Event": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "calendar" }, { "name": "google" }, { "name": "sync" }]
+}

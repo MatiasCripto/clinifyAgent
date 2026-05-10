@@ -1,0 +1,87 @@
+{
+  "name": "06 · Post-Appointment NPS Survey",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 30 }] }
+      },
+      "id": "cron",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst windowStart = new Date(now.getTime() - 2.5 * 3600000).toISOString();\nconst windowEnd   = new Date(now.getTime() - 1.5 * 3600000).toISOString();\nreturn [{ json: { windowStart, windowEnd } }];"
+      },
+      "id": "calc-window",
+      "name": "2h After Appointment Window",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "appointments",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "status",   "keyValue": "completed" },
+            { "keyName": "nps_sent", "keyValue": false },
+            { "keyName": "ends_at",  "keyValue": "gte.{{ $json.windowStart }}" },
+            { "keyName": "ends_at",  "keyValue": "lte.{{ $json.windowEnd }}" }
+          ]
+        },
+        "options": {
+          "select": "id,patient_id,ends_at,patients(first_name,phone)"
+        }
+      },
+      "id": "fetch-completed",
+      "name": "Fetch Recently Completed",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"⭐ Hola {{ $json.patients.first_name }}! Gracias por visitarnos hoy.\\n\\n¿Cómo fue tu experiencia? Del *0 al 10*, ¿cuánto nos recomendarías a un amigo?\\n\\n_(0 = Nada probable · 10 = Muy probable)_\"\n  },\n  \"options\": { \"delay\": 1500 }\n}"
+      },
+      "id": "send-nps",
+      "name": "Send NPS Survey",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [{ "keyName": "id", "keyValue": "={{ $('Fetch Recently Completed').item.json.id }}" }]
+        },
+        "fieldsUi": {
+          "fieldValues": [{ "fieldId": "nps_sent", "fieldValue": true }]
+        }
+      },
+      "id": "mark-nps-sent",
+      "name": "Mark NPS Sent",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": { "main": [[{ "node": "2h After Appointment Window", "type": "main", "index": 0 }]] },
+    "2h After Appointment Window": { "main": [[{ "node": "Fetch Recently Completed", "type": "main", "index": 0 }]] },
+    "Fetch Recently Completed": { "main": [[{ "node": "Send NPS Survey", "type": "main", "index": 0 }]] },
+    "Send NPS Survey": { "main": [[{ "node": "Mark NPS Sent", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "nps" }, { "name": "whatsapp" }, { "name": "scheduled" }]
+}

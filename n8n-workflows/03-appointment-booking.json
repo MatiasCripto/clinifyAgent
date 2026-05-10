@@ -1,0 +1,88 @@
+{
+  "name": "03 · Appointment Booking (Bot → Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "book-appointment",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Booking Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $input.item.json;\nconst startsAt = new Date(`${b.date} ${b.time}`).toISOString();\nconst endsAt   = new Date(new Date(startsAt).getTime() + 45 * 60000).toISOString();\nif (!b.patient_id || !b.professional_id || !b.clinic_id) throw new Error('Missing required fields');\nreturn [{ json: { ...b, starts_at: startsAt, ends_at: endsAt, status: 'confirmed', source: 'whatsapp_bot', reminder_sent: false, nps_sent: false } }];"
+      },
+      "id": "build-appointment",
+      "name": "Build Appointment Object",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "appointments",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "clinic_id",        "fieldValue": "={{ $json.clinic_id }}" },
+            { "fieldId": "patient_id",       "fieldValue": "={{ $json.patient_id }}" },
+            { "fieldId": "professional_id",  "fieldValue": "={{ $json.professional_id }}" },
+            { "fieldId": "starts_at",        "fieldValue": "={{ $json.starts_at }}" },
+            { "fieldId": "ends_at",          "fieldValue": "={{ $json.ends_at }}" },
+            { "fieldId": "treatment",        "fieldValue": "={{ $json.treatment || 'Consulta general' }}" },
+            { "fieldId": "status",           "fieldValue": "confirmed" },
+            { "fieldId": "source",           "fieldValue": "whatsapp_bot" },
+            { "fieldId": "reminder_sent",    "fieldValue": false },
+            { "fieldId": "nps_sent",         "fieldValue": false }
+          ]
+        }
+      },
+      "id": "create-appointment",
+      "name": "Create Appointment",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "number", "value": "={{ $('Build Appointment Object').item.json.patient_phone }}" },
+            { "name": "textMessage", "value": "={ \"text\": \"✅ *Turno confirmado*\\n\\n📅 Fecha: {{ $('Build Appointment Object').item.json.date }}\\n🕐 Hora: {{ $('Build Appointment Object').item.json.time }}\\n👨‍⚕️ Profesional: {{ $('Build Appointment Object').item.json.professional_name }}\\n📍 OdontoCare\\n\\nTe recordaremos 24hs antes. ¡Hasta pronto! 😊\" }" }
+          ]
+        }
+      },
+      "id": "confirm-whatsapp",
+      "name": "Confirm via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, appointment_id: $('Create Appointment').item.json.id }) }}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Booking Webhook": { "main": [[{ "node": "Build Appointment Object", "type": "main", "index": 0 }]] },
+    "Build Appointment Object": { "main": [[{ "node": "Create Appointment", "type": "main", "index": 0 }]] },
+    "Create Appointment": { "main": [[{ "node": "Confirm via WhatsApp", "type": "main", "index": 0 }]] },
+    "Confirm via WhatsApp": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "appointments" }, { "name": "booking" }, { "name": "whatsapp" }]
+}

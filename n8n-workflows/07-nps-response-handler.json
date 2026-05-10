@@ -1,0 +1,118 @@
+{
+  "name": "07 · NPS Response Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nps-response",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "NPS Response Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { patient_id, patient_phone, appointment_id, score, comment } = $input.item.json;\nconst s = parseInt(score);\nif (isNaN(s) || s < 0 || s > 10) throw new Error('Invalid NPS score');\nconst segment = s >= 9 ? 'promoter' : s >= 7 ? 'neutral' : 'detractor';\nconst thanks = s >= 9\n  ? '¡Muchas gracias! 🎉 Nos alegra saber que tuviste una excelente experiencia. ¡Hasta la próxima!'\n  : s >= 7\n  ? '¡Gracias por tu respuesta! 😊 Seguimos trabajando para mejorar. ¡Hasta pronto!'\n  : 'Gracias por tu honestidad. Lamentamos no haber cumplido tus expectativas. Un agente se va a comunicar con vos pronto. 🙏';\nreturn [{ json: { patient_id, patient_phone, appointment_id, score: s, comment: comment || null, segment, thanks } }];"
+      },
+      "id": "classify",
+      "name": "Classify Score",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "nps_responses",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "patient_id",      "fieldValue": "={{ $json.patient_id }}" },
+            { "fieldId": "appointment_id",  "fieldValue": "={{ $json.appointment_id }}" },
+            { "fieldId": "score",           "fieldValue": "={{ $json.score }}" },
+            { "fieldId": "comment",         "fieldValue": "={{ $json.comment }}" },
+            { "fieldId": "segment",         "fieldValue": "={{ $json.segment }}" },
+            { "fieldId": "source",          "fieldValue": "whatsapp" }
+          ]
+        }
+      },
+      "id": "save-nps",
+      "name": "Save NPS Response",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $('Classify Score').item.json.patient_phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": { \"text\": \"{{ $('Classify Score').item.json.thanks }}\" },\n  \"options\": { \"delay\": 1000 }\n}"
+      },
+      "id": "send-thanks",
+      "name": "Send Thank You",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $('Classify Score').item.json.segment }}",
+              "rightValue": "detractor",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "id": "is-detractor",
+      "name": "Is Detractor?",
+      "type": "n8n-nodes-base.if",
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.ALERT_FROM_EMAIL }}",
+        "toEmail":   "={{ $env.CLINIC_MANAGER_EMAIL }}",
+        "subject":   "⚠ NPS Detractor — Score {{ $('Classify Score').item.json.score }}/10",
+        "emailType": "html",
+        "message":   "<p>Paciente ID: <strong>{{ $('Classify Score').item.json.patient_id }}</strong> dejó un NPS de <strong>{{ $('Classify Score').item.json.score }}/10</strong>.</p><p>Comentario: {{ $('Classify Score').item.json.comment || 'Sin comentario' }}</p><p>Requiere seguimiento urgente.</p>"
+      },
+      "id": "alert-manager",
+      "name": "Alert Manager (Detractor)",
+      "type": "n8n-nodes-base.sendEmail",
+      "credentials": { "smtp": { "name": "SMTP OdontoCare" } },
+      "position": [1340, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1340, 420]
+    }
+  ],
+  "connections": {
+    "NPS Response Webhook": { "main": [[{ "node": "Classify Score", "type": "main", "index": 0 }]] },
+    "Classify Score": { "main": [[{ "node": "Save NPS Response", "type": "main", "index": 0 }]] },
+    "Save NPS Response": { "main": [[{ "node": "Send Thank You", "type": "main", "index": 0 }]] },
+    "Send Thank You": { "main": [[{ "node": "Is Detractor?", "type": "main", "index": 0 }]] },
+    "Is Detractor?": {
+      "main": [
+        [{ "node": "Alert Manager (Detractor)", "type": "main", "index": 0 }],
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    },
+    "Alert Manager (Detractor)": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "nps" }, { "name": "alerts" }, { "name": "whatsapp" }]
+}

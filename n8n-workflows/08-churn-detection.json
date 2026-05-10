@@ -1,0 +1,95 @@
+{
+  "name": "08 · Churn Detection (Daily Scan)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }]
+        }
+      },
+      "id": "cron",
+      "name": "Daily 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "patients",
+        "returnAll": true,
+        "filters": {
+          "conditions": [{ "keyName": "is_active", "keyValue": true }]
+        },
+        "options": {
+          "select": "id,first_name,last_name,phone,organization_id"
+        }
+      },
+      "id": "fetch-patients",
+      "name": "Fetch Active Patients",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const patient = $input.item.json;\nconst patientId = patient.id;\n\n// Query last appointment via REST\nconst url = `${$env.SUPABASE_URL}/rest/v1/appointments?patient_id=eq.${patientId}&status=neq.cancelled&order=starts_at.desc&limit=1`;\nconst res = await $http.request({ url, headers: { apikey: $env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${$env.SUPABASE_SERVICE_KEY}` } });\nconst appointments = Array.isArray(res) ? res : [];\n\nif (appointments.length === 0) {\n  return [{ json: { ...patient, daysSinceLast: 999, churnRisk: 'churned', churnProbability: 0.95 } }];\n}\n\nconst lastAppt = new Date(appointments[0].starts_at);\nconst days = Math.floor((Date.now() - lastAppt.getTime()) / 86400000);\nconst risk = days > 365 ? 'churned' : days > 180 ? 'high' : days > 90 ? 'medium' : 'low';\nconst prob = days > 365 ? 0.95 : days > 180 ? 0.75 : days > 90 ? 0.45 : 0.1;\n\nreturn [{ json: { ...patient, daysSinceLast: days, lastAppointmentAt: appointments[0].starts_at, churnRisk: risk, churnProbability: prob } }];"
+      },
+      "id": "compute-churn",
+      "name": "Compute Churn Score",
+      "type": "n8n-nodes-base.code",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.churnRisk }}",
+              "rightValue": "low",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ]
+        }
+      },
+      "id": "is-at-risk",
+      "name": "Is At Risk?",
+      "type": "n8n-nodes-base.if",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "patient_scores",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "patient_id",        "fieldValue": "={{ $json.id }}" },
+            { "fieldId": "organization_id",   "fieldValue": "={{ $json.organization_id }}" },
+            { "fieldId": "churn_risk",        "fieldValue": "={{ $json.churnRisk }}" },
+            { "fieldId": "churn_probability", "fieldValue": "={{ $json.churnProbability }}" },
+            { "fieldId": "last_appointment_at","fieldValue": "={{ $json.lastAppointmentAt }}" },
+            { "fieldId": "computed_at",       "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        }
+      },
+      "id": "upsert-score",
+      "name": "Upsert Patient Score",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [1120, 240]
+    }
+  ],
+  "connections": {
+    "Daily 08:00": { "main": [[{ "node": "Fetch Active Patients", "type": "main", "index": 0 }]] },
+    "Fetch Active Patients": { "main": [[{ "node": "Compute Churn Score", "type": "main", "index": 0 }]] },
+    "Compute Churn Score": { "main": [[{ "node": "Is At Risk?", "type": "main", "index": 0 }]] },
+    "Is At Risk?": {
+      "main": [
+        [{ "node": "Upsert Patient Score", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "churn" }, { "name": "analytics" }, { "name": "scheduled" }]
+}

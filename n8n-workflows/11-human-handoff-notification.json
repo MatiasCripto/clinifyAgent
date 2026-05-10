@@ -1,0 +1,87 @@
+{
+  "name": "11 · Human Handoff Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "human-handoff",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Handoff Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "automation_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "workflow",      "fieldValue": "human_handoff" },
+            { "fieldId": "patient_id",   "fieldValue": "={{ $json.patient_id }}" },
+            { "fieldId": "phone",        "fieldValue": "={{ $json.phone }}" },
+            { "fieldId": "triggered_at", "fieldValue": "={{ new Date().toISOString() }}" },
+            { "fieldId": "payload",      "fieldValue": "={{ JSON.stringify($json) }}" }
+          ]
+        }
+      },
+      "id": "log-handoff",
+      "name": "Log Handoff",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.ALERT_FROM_EMAIL }}",
+        "toEmail":   "={{ $env.CLINIC_STAFF_EMAIL }}",
+        "subject":   "👥 Derivación a agente — {{ $json.patient_name || $json.phone }}",
+        "emailType": "html",
+        "message":   "<h2>Nueva derivación a agente humano</h2><p><strong>Paciente:</strong> {{ $('Handoff Webhook').item.json.patient_name || 'Desconocido' }}</p><p><strong>Teléfono:</strong> {{ $('Handoff Webhook').item.json.phone }}</p><p><strong>Hora:</strong> {{ new Date().toLocaleString('es-AR') }}</p><p><strong>Último estado del bot:</strong> {{ $('Handoff Webhook').item.json.last_state || 'N/A' }}</p><p>Por favor, contactar al paciente a la brevedad.</p>"
+      },
+      "id": "notify-staff",
+      "name": "Notify Staff by Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "credentials": { "smtp": { "name": "SMTP OdontoCare" } },
+      "position": [680, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"👥 *Derivación a agente*\\n*Paciente:* {{ $('Handoff Webhook').item.json.patient_name || $('Handoff Webhook').item.json.phone }}\\n*Estado bot:* {{ $('Handoff Webhook').item.json.last_state }}\\n*Hora:* {{ new Date().toLocaleString('es-AR') }}\"\n}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "notify-slack",
+      "name": "Notify Slack (optional)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Handoff Webhook": { "main": [[{ "node": "Log Handoff", "type": "main", "index": 0 }]] },
+    "Log Handoff": {
+      "main": [[
+        { "node": "Notify Staff by Email", "type": "main", "index": 0 },
+        { "node": "Notify Slack (optional)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Notify Staff by Email": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "handoff" }, { "name": "notifications" }, { "name": "staff" }]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "13 · Missed Appointment Follow-up",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 20 * * *" }]
+        }
+      },
+      "id": "cron",
+      "name": "Daily 20:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date();\nconst start = new Date(today.setHours(0,0,0,0)).toISOString();\nconst end   = new Date(today.setHours(23,59,59,999)).toISOString();\nreturn [{ json: { start, end } }];"
+      },
+      "id": "today-window",
+      "name": "Today Window",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "appointments",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "status",   "keyValue": "absent" },
+            { "keyName": "starts_at","keyValue": "gte.{{ $json.start }}" },
+            { "keyName": "starts_at","keyValue": "lte.{{ $json.end }}" }
+          ]
+        },
+        "options": {
+          "select": "id,patient_id,starts_at,professionals(full_name),patients(first_name,phone)"
+        }
+      },
+      "id": "fetch-absent",
+      "name": "Fetch Absent Today",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"Hola {{ $json.patients.first_name }}! 👋 Notamos que hoy no pudiste asistir a tu turno con {{ $json.professionals.full_name }}.\\n\\n¿Todo bien? 🙏\\n\\n¿Querés reprogramar? Escribinos *TURNO* y te conseguimos un nuevo horario rápidamente.\"\n  },\n  \"options\": { \"delay\": 1500 }\n}"
+      },
+      "id": "send-followup",
+      "name": "Send Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Daily 20:00": { "main": [[{ "node": "Today Window", "type": "main", "index": 0 }]] },
+    "Today Window": { "main": [[{ "node": "Fetch Absent Today", "type": "main", "index": 0 }]] },
+    "Fetch Absent Today": { "main": [[{ "node": "Send Follow-up", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "appointments" }, { "name": "follow-up" }, { "name": "whatsapp" }, { "name": "scheduled" }]
+}

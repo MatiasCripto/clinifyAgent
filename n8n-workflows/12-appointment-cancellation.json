@@ -1,0 +1,106 @@
+{
+  "name": "12 · Appointment Cancellation Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cancel-appointment",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Cancellation Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [{ "keyName": "id", "keyValue": "={{ $json.appointment_id }}" }]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "status",               "fieldValue": "cancelled" },
+            { "fieldId": "cancellation_reason",  "fieldValue": "={{ $json.reason || 'Cancelado por paciente vía WhatsApp' }}" }
+          ]
+        }
+      },
+      "id": "cancel-in-db",
+      "name": "Cancel in Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $('Cancellation Webhook').item.json.google_event_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ]
+        }
+      },
+      "id": "has-calendar-event",
+      "name": "Has Calendar Event?",
+      "type": "n8n-nodes-base.if",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.N8N_WEBHOOK_BASE_URL }}/calendar-sync",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"action\": \"cancelled\",\n  \"appointment_id\": \"{{ $('Cancellation Webhook').item.json.appointment_id }}\",\n  \"google_event_id\": \"{{ $('Cancellation Webhook').item.json.google_event_id }}\"\n}"
+      },
+      "id": "delete-calendar",
+      "name": "Delete Calendar Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $('Cancellation Webhook').item.json.patient_phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"✅ Tu turno fue cancelado correctamente.\\n\\nCuando quieras sacar uno nuevo, escribinos *TURNO* y te ayudamos. 😊\"\n  }\n}"
+      },
+      "id": "confirm-cancellation",
+      "name": "Confirm Cancellation via WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Cancellation Webhook": { "main": [[{ "node": "Cancel in Supabase", "type": "main", "index": 0 }]] },
+    "Cancel in Supabase": { "main": [[{ "node": "Has Calendar Event?", "type": "main", "index": 0 }]] },
+    "Has Calendar Event?": {
+      "main": [
+        [{ "node": "Delete Calendar Event", "type": "main", "index": 0 }],
+        [{ "node": "Confirm Cancellation via WhatsApp", "type": "main", "index": 0 }]
+      ]
+    },
+    "Delete Calendar Event": { "main": [[{ "node": "Confirm Cancellation via WhatsApp", "type": "main", "index": 0 }]] },
+    "Confirm Cancellation via WhatsApp": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "appointments" }, { "name": "cancellation" }, { "name": "whatsapp" }]
+}

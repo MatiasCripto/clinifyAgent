@@ -1,0 +1,111 @@
+{
+  "name": "04 · Appointment Reminder 24h",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      },
+      "id": "cron",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst windowStart = new Date(now.getTime() + 23.5 * 3600000).toISOString();\nconst windowEnd   = new Date(now.getTime() + 24.5 * 3600000).toISOString();\nreturn [{ json: { windowStart, windowEnd } }];"
+      },
+      "id": "calc-window",
+      "name": "Calculate 24h Window",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "appointments",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "status",        "keyValue": "confirmed" },
+            { "keyName": "reminder_sent", "keyValue": false },
+            { "keyName": "starts_at",     "keyValue": "gte.{{ $json.windowStart }}" },
+            { "keyName": "starts_at",     "keyValue": "lte.{{ $json.windowEnd }}" }
+          ]
+        },
+        "options": {
+          "select": "id,patient_id,professional_id,starts_at,treatment,patients(first_name,last_name,phone),professionals(full_name)"
+        }
+      },
+      "id": "fetch-appointments",
+      "name": "Fetch Upcoming Appointments",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.patients?.phone }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ]
+        }
+      },
+      "id": "has-phone",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.if",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"⏰ *Recordatorio de turno*\\n\\nHola {{ $json.patients.first_name }}! Te recordamos que mañana tenés turno:\\n\\n👨‍⚕️ {{ $json.professionals.full_name }}\\n🕐 {{ new Date($json.starts_at).toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'}) }}hs\\n🦷 {{ $json.treatment }}\\n\\n¿Podés confirmar tu asistencia?\\n\\n✅ *SÍ, confirmo*\\n❌ *NO puedo ir*\"\n  },\n  \"options\": { \"delay\": 1200 }\n}",
+        "options": {}
+      },
+      "id": "send-reminder",
+      "name": "Send WhatsApp Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [{ "keyName": "id", "keyValue": "={{ $('Fetch Upcoming Appointments').item.json.id }}" }]
+        },
+        "fieldsUi": {
+          "fieldValues": [{ "fieldId": "reminder_sent", "fieldValue": true }]
+        }
+      },
+      "id": "mark-sent",
+      "name": "Mark Reminder Sent",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [1340, 240]
+    }
+  ],
+  "connections": {
+    "Every Hour": { "main": [[{ "node": "Calculate 24h Window", "type": "main", "index": 0 }]] },
+    "Calculate 24h Window": { "main": [[{ "node": "Fetch Upcoming Appointments", "type": "main", "index": 0 }]] },
+    "Fetch Upcoming Appointments": { "main": [[{ "node": "Has Phone?", "type": "main", "index": 0 }]] },
+    "Has Phone?": {
+      "main": [
+        [{ "node": "Send WhatsApp Reminder", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Send WhatsApp Reminder": { "main": [[{ "node": "Mark Reminder Sent", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "reminders" }, { "name": "whatsapp" }, { "name": "scheduled" }]
+}

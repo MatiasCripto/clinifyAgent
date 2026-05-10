@@ -1,0 +1,87 @@
+{
+  "name": "02 · New Patient Registration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-patient",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json;\nconst phone = (body.phone || '').replace(/\\D/g, '');\nif (!body.first_name || !phone) throw new Error('first_name and phone are required');\nreturn [{ json: { ...body, phone, whatsapp_id: phone + '@s.whatsapp.net', created_at: new Date().toISOString() } }];"
+      },
+      "id": "validate-input",
+      "name": "Validate & Normalize",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "patients",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "organization_id", "fieldValue": "={{ $json.organization_id }}" },
+            { "fieldId": "first_name",       "fieldValue": "={{ $json.first_name }}" },
+            { "fieldId": "last_name",        "fieldValue": "={{ $json.last_name }}" },
+            { "fieldId": "phone",            "fieldValue": "={{ $json.phone }}" },
+            { "fieldId": "email",            "fieldValue": "={{ $json.email }}" },
+            { "fieldId": "whatsapp_id",      "fieldValue": "={{ $json.whatsapp_id }}" },
+            { "fieldId": "is_active",        "fieldValue": true }
+          ]
+        }
+      },
+      "id": "upsert-patient",
+      "name": "Upsert Patient in Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "number", "value": "={{ $('Validate & Normalize').item.json.phone }}" },
+            { "name": "textMessage", "value": "={ \"text\": \"¡Bienvenido/a {{ $('Validate & Normalize').item.json.first_name }}! 🎉\\n\\nTu perfil en OdontoCare fue creado exitosamente.\\nYa podés sacar turnos escribiéndonos por WhatsApp.\\n\\nEscribilos *MENÚ* para ver las opciones. 😊\" }" }
+          ]
+        }
+      },
+      "id": "send-welcome",
+      "name": "Send Welcome WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, patient_id: $('Upsert Patient in Supabase').item.json.id }) }}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": { "main": [[{ "node": "Validate & Normalize", "type": "main", "index": 0 }]] },
+    "Validate & Normalize": { "main": [[{ "node": "Upsert Patient in Supabase", "type": "main", "index": 0 }]] },
+    "Upsert Patient in Supabase": { "main": [[{ "node": "Send Welcome WhatsApp", "type": "main", "index": 0 }]] },
+    "Send Welcome WhatsApp": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "patients" }, { "name": "whatsapp" }, { "name": "onboarding" }]
+}

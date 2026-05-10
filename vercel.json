@@ -1,0 +1,63 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "devCommand":   "next dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+
+  "regions": ["gru1"],
+
+  "functions": {
+    "src/app/api/webhooks/whatsapp/route.ts": {
+      "maxDuration": 10
+    },
+    "src/app/api/bot/send/route.ts": {
+      "maxDuration": 10
+    }
+  },
+
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options",        "value": "DENY" },
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-DNS-Prefetch-Control", "value": "on" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
+      ]
+    }
+  ],
+
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api/health"
+    }
+  ],
+
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/overview",
+      "permanent": false
+    }
+  ],
+
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL":      "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "NEXT_PUBLIC_APP_URL":           "@app_url",
+    "EVOLUTION_API_URL":             "@evolution_api_url",
+    "EVOLUTION_API_KEY":             "@evolution_api_key",
+    "EVOLUTION_INSTANCE":            "@evolution_instance",
+    "N8N_WEBHOOK_BASE_URL":          "@n8n_webhook_base_url"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "name": "14 · Daily Analytics Snapshot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 23 * * *" }]
+        }
+      },
+      "id": "cron",
+      "name": "Daily 23:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date();\nconst start = new Date(today.setHours(0,0,0,0)).toISOString();\nconst end   = new Date(today.setHours(23,59,59,999)).toISOString();\nconst dateStr = new Date().toISOString().slice(0, 10);\nreturn [{ json: { start, end, dateStr } }];"
+      },
+      "id": "set-date",
+      "name": "Set Today Dates",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/appointments?starts_at=gte.{{ $json.start }}&starts_at=lte.{{ $json.end }}&select=status,source",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        }
+      },
+      "id": "fetch-today-appointments",
+      "name": "Fetch Today Appointments",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const appts = Array.isArray($input.item.json) ? $input.item.json : [];\nconst total      = appts.length;\nconst confirmed  = appts.filter(a => a.status === 'confirmed' || a.status === 'completed').length;\nconst cancelled  = appts.filter(a => a.status === 'cancelled').length;\nconst absent     = appts.filter(a => a.status === 'absent').length;\nconst fromBot    = appts.filter(a => a.source === 'whatsapp_bot').length;\nconst cancelRate = total > 0 ? (cancelled / total) : 0;\nconst dateStr    = $('Set Today Dates').item.json.dateStr;\nreturn [{ json: { dateStr, total, confirmed, cancelled, absent, fromBot, cancelRate } }];"
+      },
+      "id": "compute-metrics",
+      "name": "Compute Metrics",
+      "type": "n8n-nodes-base.code",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "analytics_daily",
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "date",           "fieldValue": "={{ $json.dateStr }}" },
+            { "fieldId": "total_appointments",     "fieldValue": "={{ $json.total }}" },
+            { "fieldId": "confirmed_appointments", "fieldValue": "={{ $json.confirmed }}" },
+            { "fieldId": "cancelled_appointments", "fieldValue": "={{ $json.cancelled }}" },
+            { "fieldId": "absent_appointments",    "fieldValue": "={{ $json.absent }}" },
+            { "fieldId": "bot_bookings",           "fieldValue": "={{ $json.fromBot }}" },
+            { "fieldId": "cancel_rate",            "fieldValue": "={{ $json.cancelRate }}" }
+          ]
+        }
+      },
+      "id": "save-snapshot",
+      "name": "Save Daily Snapshot",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Daily 23:00": { "main": [[{ "node": "Set Today Dates", "type": "main", "index": 0 }]] },
+    "Set Today Dates": { "main": [[{ "node": "Fetch Today Appointments", "type": "main", "index": 0 }]] },
+    "Fetch Today Appointments": { "main": [[{ "node": "Compute Metrics", "type": "main", "index": 0 }]] },
+    "Compute Metrics": { "main": [[{ "node": "Save Daily Snapshot", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "analytics" }, { "name": "reporting" }, { "name": "scheduled" }]
+}

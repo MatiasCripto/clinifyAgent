@@ -1,0 +1,68 @@
+{
+  "name": "05 · Appointment Reminder 1h",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 15 }] }
+      },
+      "id": "cron",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst windowStart = new Date(now.getTime() + 55 * 60000).toISOString();\nconst windowEnd   = new Date(now.getTime() + 75 * 60000).toISOString();\nreturn [{ json: { windowStart, windowEnd } }];"
+      },
+      "id": "calc-window",
+      "name": "Calculate 1h Window",
+      "type": "n8n-nodes-base.code",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "appointments",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "status",        "keyValue": "confirmed" },
+            { "keyName": "starts_at",     "keyValue": "gte.{{ $json.windowStart }}" },
+            { "keyName": "starts_at",     "keyValue": "lte.{{ $json.windowEnd }}" }
+          ]
+        },
+        "options": {
+          "select": "id,patient_id,professional_id,starts_at,treatment,patients(first_name,phone),professionals(full_name)"
+        }
+      },
+      "id": "fetch-appointments",
+      "name": "Fetch 1h Appointments",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"🦷 Hola {{ $json.patients.first_name }}! En *1 hora* tenés turno con {{ $json.professionals.full_name }}.\\n\\nDirección: Av. Colón 1234, Córdoba.\\n¡Te esperamos! 😊\"\n  },\n  \"options\": { \"delay\": 1000 }\n}"
+      },
+      "id": "send-reminder",
+      "name": "Send 1h Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": { "main": [[{ "node": "Calculate 1h Window", "type": "main", "index": 0 }]] },
+    "Calculate 1h Window": { "main": [[{ "node": "Fetch 1h Appointments", "type": "main", "index": 0 }]] },
+    "Fetch 1h Appointments": { "main": [[{ "node": "Send 1h Reminder", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "reminders" }, { "name": "whatsapp" }, { "name": "scheduled" }]
+}

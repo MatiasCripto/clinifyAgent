@@ -1,0 +1,124 @@
+{
+  "name": "09 · Churn Recovery Campaign",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 10 * * 1" }]
+        }
+      },
+      "id": "cron",
+      "name": "Every Monday 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "patient_scores",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            { "keyName": "churn_risk", "keyValue": "in.(high,churned)" }
+          ]
+        },
+        "options": {
+          "select": "patient_id,churn_risk,churn_probability,last_appointment_at,patients(first_name,last_name,phone)"
+        }
+      },
+      "id": "fetch-churned",
+      "name": "Fetch At-Risk Patients",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "conditions": [
+                { "leftValue": "={{ $json.churn_risk }}", "rightValue": "churned", "operator": { "type": "string", "operation": "equals" } }
+              ],
+              "output": 0
+            },
+            {
+              "conditions": [
+                { "leftValue": "={{ $json.churn_risk }}", "rightValue": "high", "operator": { "type": "string", "operation": "equals" } }
+              ],
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "route-risk",
+      "name": "Route by Risk Level",
+      "type": "n8n-nodes-base.switch",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"Hola {{ $json.patients.first_name }}! 👋 Hace tiempo que no te vemos por la clínica.\\n\\nTe queremos ofrecer un *chequeo gratuito* para ponerse al día con tu salud dental. 🦷\\n\\n¿Te interesa? Respondé *SÍ* y te damos un turno prioritario.\"\n  },\n  \"options\": { \"delay\": 2000 }\n}"
+      },
+      "id": "send-churned-msg",
+      "name": "Re-engagement (Churned)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendText/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{ $env.EVOLUTION_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.patients.phone.replace(/\\\\D/g, '') }}\",\n  \"textMessage\": {\n    \"text\": \"Hola {{ $json.patients.first_name }}! 😊 Es importante mantener los controles dentales.\\n\\n¿Ya agendaste tu próxima consulta? Escribinos *TURNO* y te ayudamos en minutos.\"\n  },\n  \"options\": { \"delay\": 1500 }\n}"
+      },
+      "id": "send-high-risk-msg",
+      "name": "Reminder (High Risk)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "patient_scores",
+        "filters": {
+          "conditions": [{ "keyName": "patient_id", "keyValue": "={{ $json.patient_id }}" }]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "recovery_sent_at", "fieldValue": "={{ new Date().toISOString() }}" }
+          ]
+        }
+      },
+      "id": "mark-recovery-sent",
+      "name": "Mark Recovery Sent",
+      "type": "n8n-nodes-base.supabase",
+      "credentials": { "supabaseApi": { "name": "Supabase OdontoCare" } },
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Every Monday 10:00": { "main": [[{ "node": "Fetch At-Risk Patients", "type": "main", "index": 0 }]] },
+    "Fetch At-Risk Patients": { "main": [[{ "node": "Route by Risk Level", "type": "main", "index": 0 }]] },
+    "Route by Risk Level": {
+      "main": [
+        [{ "node": "Re-engagement (Churned)", "type": "main", "index": 0 }],
+        [{ "node": "Reminder (High Risk)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Re-engagement (Churned)": { "main": [[{ "node": "Mark Recovery Sent", "type": "main", "index": 0 }]] },
+    "Reminder (High Risk)": { "main": [[{ "node": "Mark Recovery Sent", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "churn" }, { "name": "recovery" }, { "name": "whatsapp" }, { "name": "scheduled" }]
+}
