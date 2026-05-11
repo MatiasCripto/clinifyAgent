@@ -5,7 +5,7 @@ import type { BotContext } from '@/lib/types/whatsapp.types'
 
 export const R = {
   greeting: (name?: string, clinicName = 'Clinify') =>
-    `¡Hola${name ? ` ${name}` : ''}! 👋 Bienvenido/a a *${clinicName}*.\n\nSoy el asistente virtual de la clínica.`,
+    `¡Hola${name ? ` ${name}` : ''}! 👋 Bienvenido/a a *${clinicName}*.\n\nSoy el asistente virtual. ¿En qué te puedo ayudar?`,
 
   greetingKnown: (name: string) =>
     `¡Hola ${name}! 😊 ¿En qué puedo ayudarte hoy?`,
@@ -31,7 +31,7 @@ export const R = {
     `¿Cuál es tu *DNI*? 🪪\n\nEscribí solo el número, sin puntos.\n_(Si preferís, respondé *omitir* para saltear este paso)_`,
 
   patientNotFound: () =>
-    `No encontré una cuenta con ese dato. ¿Sos paciente nuevo?\n\n1️⃣ Sí, soy nuevo\n2️⃣ Intentar con otro dato`,
+    `No encontré una cuenta con ese dato. ¿Es la primera vez que nos contactás?\n\n1️⃣ Sí, soy nuevo/a\n2️⃣ Intentar con otro dato`,
 
   newPatientWelcome: () =>
     `¡Genial! Vamos a crear tu perfil 🎉\n\nPor favor enviá:\n• Tu nombre y apellido\n• Tu número de teléfono\n• Tu email (opcional)`,
@@ -91,7 +91,7 @@ export const R = {
     `Entendido, te voy a conectar con un agente humano. Un momento por favor... 👥\n\nNuestro horario de atención es *Lunes a Viernes 8:00 - 18:00hs*.\nSi estás fuera de ese horario, te respondemos a la brevedad.`,
 
   npsQuestion: () =>
-    `Hola! ¿Cómo fue tu experiencia en nuestra última consulta? 🦷\n\nDel *0 al 10*, ¿cuánto nos recomendarías a un amigo?\n\n_(0 = Nada probable · 10 = Muy probable)_`,
+    `Hola! ¿Cómo fue tu experiencia en tu última visita? 😊\n\nDel *0 al 10*, ¿cuánto nos recomendarías a un amigo?\n\n_(0 = Nada probable · 10 = Muy probable)_`,
 
   npsThanks: (score: number) => {
     if (score >= 9) return `¡Muchas gracias! 🎉 Nos alegra mucho que hayas tenido una gran experiencia. ¡Hasta la próxima!`

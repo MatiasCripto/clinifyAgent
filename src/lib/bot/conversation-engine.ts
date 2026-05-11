@@ -114,7 +114,7 @@ export function processMessage(
       return {
         newContext: next,
         responses: [
-          `✅ *¡Registrado correctamente!*\nYa sos parte de *${clinicLabel}*. 🦷\n\nA partir de ahora te reconocemos cada vez que escribas.`,
+          `✅ *¡Registrado correctamente!*\nYa sos parte de *${clinicLabel}*. 🎉\n\nA partir de ahora te reconocemos cada vez que escribas.`,
           R.mainMenu(next.patientName ?? '', false),
         ],
         shouldEndSession: false,
