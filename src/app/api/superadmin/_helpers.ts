@@ -2,6 +2,8 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server-admin'
 
+const SUPERADMIN_EMAIL = 'scaronejonatan@gmail.com'
+
 export async function requireSuperadmin() {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -11,14 +13,7 @@ export async function requireSuperadmin() {
   )
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+  if (user.email !== SUPERADMIN_EMAIL) return null
 
-  const admin = createAdminClient()
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-  if (profile?.role !== 'superadmin') return null
-
-  return admin
+  return createAdminClient()
 }
