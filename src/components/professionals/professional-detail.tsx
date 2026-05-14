@@ -42,15 +42,6 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
 
-  if (!professional) return null
-  const pr = professional
-  const confirmed = appointments.filter(a => a.status === 'confirmed' || a.status === 'completed').length
-  const cancelled = appointments.filter(a => a.status === 'cancelled').length
-  const pending   = appointments.filter(a => a.status === 'pending').length
-  const rate = appointments.length > 0 ? confirmed / appointments.length : 0
-  const uniquePatients = new Set(appointments.map(a => a.patient_id)).size
-  const byDate = [...appointments].sort((a, b) => b.starts_at.localeCompare(a.starts_at))
-
   const selClass = cn(
     'px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)]',
     'bg-[var(--surface)] text-[var(--foreground)]',
@@ -78,6 +69,15 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
     } catch { /* ignore */ }
     setLoadingSchedule(false)
   }, [])
+
+  if (!professional) return null
+  const pr = professional
+  const confirmed = appointments.filter(a => a.status === 'confirmed' || a.status === 'completed').length
+  const cancelled = appointments.filter(a => a.status === 'cancelled').length
+  const pending   = appointments.filter(a => a.status === 'pending').length
+  const rate = appointments.length > 0 ? confirmed / appointments.length : 0
+  const uniquePatients = new Set(appointments.map(a => a.patient_id)).size
+  const byDate = [...appointments].sort((a, b) => b.starts_at.localeCompare(a.starts_at))
 
   function openSchedule() { setMode('schedule'); setConfirmDelete(false); if (professional) fetchAvailability(professional.id) }
 
