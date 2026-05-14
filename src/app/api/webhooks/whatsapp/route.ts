@@ -98,10 +98,12 @@ function generateDefaultSlots(
   return generateSlotsFromTemplates(templates, dateStr, takenSlots, maxResults)
 }
 
-async function getProfessionalId(name: string): Promise<string | null> {
+async function getProfessionalId(name: string, orgId?: string): Promise<string | null> {
   const sb = createServiceClient()
   const stripped = name.replace(/^Dra?\.\s*/i, '')
-  const { data } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle()
+  let query = sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1)
+  if (orgId) query = query.eq('organization_id', orgId)
+  const { data } = await query.maybeSingle()
   return data?.id ?? null
 }
 
@@ -141,19 +143,23 @@ async function fetchUpcomingAppointments(patientId: string) {
   }))
 }
 
-async function fetchProfessionals(): Promise<string[]> {
+async function fetchProfessionals(orgId?: string): Promise<string[]> {
   const sb = createServiceClient()
-  const { data } = await sb.from('professionals').select('full_name').eq('is_active', true).order('full_name')
+  let query = sb.from('professionals').select('full_name').eq('is_active', true).order('full_name')
+  if (orgId) query = query.eq('organization_id', orgId)
+  const { data } = await query
   return (data ?? []).map((p: { full_name: string }) => p.full_name)
 }
 
-async function fetchSpecialties(): Promise<string[]> {
+async function fetchSpecialties(orgId?: string): Promise<string[]> {
   const sb = createServiceClient()
-  const { data } = await sb.from('specialties').select('name').order('name')
+  let query = sb.from('specialties').select('name').order('name')
+  if (orgId) query = query.eq('organization_id', orgId)
+  const { data } = await query
   return (data ?? []).map((s: { name: string }) => s.name)
 }
 
-async function fetchAvailableDates(professionalName: string | null): Promise<{ date: string; label: string }[]> {
+async function fetchAvailableDates(professionalName: string | null, orgId?: string): Promise<{ date: string; label: string }[]> {
   const today = new Date()
   const candidateDates: string[] = []
   for (let i = 1; i <= 21; i++) {
@@ -170,7 +176,7 @@ async function fetchAvailableDates(professionalName: string | null): Promise<{ d
   for (const dateKey of candidateDates) {
     const [dd, mm, yy] = dateKey.split('/').map(Number)
     const dow = new Date(yy, mm - 1, dd, 12).getDay()
-    const daySlots = await getSlotsForDate(dow, dateKey, professionalName)
+    const daySlots = await getSlotsForDate(dow, dateKey, professionalName, 9, orgId)
     if (daySlots.length > 0) {
       const dayName = DAY_NAMES[dow]
       foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}` })
@@ -184,7 +190,8 @@ async function getSlotsForDate(
   dayOfWeek: number,
   dateKey: string,
   professionalName: string | null,
-  maxSlots = 9
+  maxSlots = 9,
+  orgId?: string
 ): Promise<Array<{ date: string; time: string; label: string; duration: number }>> {
   const sb = createServiceClient()
   const [dd, mm, yy] = dateKey.split('/').map(Number)
@@ -195,11 +202,13 @@ async function getSlotsForDate(
   let professionalIds: string[] = []
 
   if (professionalName && professionalName !== 'Sin preferencia') {
-    const pid = await getProfessionalId(professionalName)
+    const pid = await getProfessionalId(professionalName, orgId)
     if (pid) professionalIds = [pid]
   } else {
-    // No preference — get all active professionals
-    const { data: all } = await sb.from('professionals').select('id').eq('is_active', true)
+    // No preference — get all active professionals for this org
+    let q = sb.from('professionals').select('id').eq('is_active', true)
+    if (orgId) q = q.eq('organization_id', orgId)
+    const { data: all } = await q
     professionalIds = (all ?? []).map(p => p.id)
   }
 
@@ -246,10 +255,10 @@ async function getSlotsForDate(
   return allSlots.slice(0, maxSlots)
 }
 
-async function fetchAvailableSlots(dateKey: string, professionalName: string | null): Promise<{ date: string; time: string; label: string }[]> {
+async function fetchAvailableSlots(dateKey: string, professionalName: string | null, orgId?: string): Promise<{ date: string; time: string; label: string }[]> {
   const [dd, mm, yy] = dateKey.split('/').map(Number)
   const dow = new Date(yy, mm - 1, dd, 12).getDay()
-  const slots = await getSlotsForDate(dow, dateKey, professionalName)
+  const slots = await getSlotsForDate(dow, dateKey, professionalName, 9, orgId)
   return slots.map(s => ({
     date: s.date,
     time: s.time,
@@ -289,14 +298,15 @@ async function saveAppointmentFromBot(ctx: BotContext): Promise<void> {
     patientId = created.id
   }
 
+  const clinicOrgId = (clinic as Record<string, string>).organization_id
   let professionalId: string | null = null
   if (ctx.selectedProfessional && ctx.selectedProfessional !== 'Sin preferencia') {
     const stripped = ctx.selectedProfessional.replace(/^Dra?\.\s*/i, '')
-    const { data: prof } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle()
+    const { data: prof } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).eq('organization_id', clinicOrgId).limit(1).maybeSingle()
     professionalId = prof?.id ?? null
   }
   if (!professionalId) {
-    const { data: anyProf } = await sb.from('professionals').select('id').eq('is_active', true).limit(1).maybeSingle()
+    const { data: anyProf } = await sb.from('professionals').select('id').eq('is_active', true).eq('organization_id', clinicOrgId).limit(1).maybeSingle()
     professionalId = anyProf?.id ?? null
   }
   if (!professionalId) return
@@ -380,11 +390,13 @@ export async function POST(req: NextRequest) {
   // ── Cargar contexto desde Supabase ─────────────────────────
   let ctx = (await loadContext(phone)) ?? createInitialContext(phone)
 
-  // ── Fetch clinic name fresh on every message (so renames take effect immediately) ──
+  // ── Fetch clinic info fresh on every message ──
+  let orgId: string | undefined
   try {
     const sb = createServiceClient()
-    const { data: clinic } = await sb.from('clinics').select('name').eq('is_active', true).limit(1).maybeSingle()
+    const { data: clinic } = await sb.from('clinics').select('name, organization_id').eq('is_active', true).limit(1).maybeSingle()
     if (clinic?.name) ctx = { ...ctx, clinicName: clinic.name }
+    if (clinic?.organization_id) orgId = clinic.organization_id
   } catch { /* ignore */ }
 
   // ── Pre-inject DB data ─────────────────────────────────────
@@ -405,12 +417,12 @@ export async function POST(req: NextRequest) {
   }
 
   if (['idle', 'closed', 'main_menu', 'booking_specialty'].includes(ctx.state) && !ctx.specialties) {
-    const specs = await fetchSpecialties()
+    const specs = await fetchSpecialties(orgId)
     if (specs.length > 0) ctx = { ...ctx, specialties: specs }
   }
 
   if (ctx.state === 'booking_specialty' && !ctx.professionals) {
-    const profs = await fetchProfessionals()
+    const profs = await fetchProfessionals(orgId)
     if (profs.length > 0) ctx = { ...ctx, professionals: profs }
   }
 
@@ -420,10 +432,10 @@ export async function POST(req: NextRequest) {
 
   if (newContext.state === 'booking_date' && responses[0] === '__FETCH_DATES__') {
     if (newContext.selectedProfessional === 'Sin preferencia') {
-      const profs = await fetchProfessionals()
+      const profs = await fetchProfessionals(orgId)
       if (profs.length > 0) newContext.selectedProfessional = profs[Math.floor(Math.random() * profs.length)]
     }
-    const dates = await fetchAvailableDates(newContext.selectedProfessional)
+    const dates = await fetchAvailableDates(newContext.selectedProfessional, orgId)
     if (dates.length === 0) {
       newContext.state = 'main_menu'
       responses[0] = `Lo siento, no hay turnos disponibles en los próximos días 😔\n¿Puedo ayudarte con algo más?`
@@ -434,9 +446,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (newContext.state === 'booking_slots' && responses[0] === '__FETCH_SLOTS__') {
-    const slots = await fetchAvailableSlots(newContext.selectedDate!, newContext.selectedProfessional)
+    const slots = await fetchAvailableSlots(newContext.selectedDate!, newContext.selectedProfessional, orgId)
     if (slots.length === 0) {
-      const dates = await fetchAvailableDates(newContext.selectedProfessional)
+      const dates = await fetchAvailableDates(newContext.selectedProfessional, orgId)
       newContext.state = 'booking_date'
       newContext.availableDatesList = dates.length > 0 ? dates : undefined
       responses[0] = dates.length > 0
