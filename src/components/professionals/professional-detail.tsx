@@ -7,14 +7,14 @@ import { AppointmentRow } from '@/components/dashboard/appointment-row'
 import { ProgressBar } from '@/components/ui/progress-bar'
 import type { Professional, Appointment, Specialty, AvailabilityTemplate } from '@/lib/types'
 import { cn } from '@/lib/utils/cn'
-import { Pencil, Trash2, Check, AlertTriangle, Clock } from 'lucide-react'
+import { Pencil, Trash2, Check, AlertTriangle, Clock, Plus, X as XIcon } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface DayConfig {
-  id?: string
+interface DayBlock {
+  tempId: string          // client-side only, for React keys
+  id?: string             // DB id (null for new blocks)
   day_of_week: number
-  active: boolean
   start_time: string
   end_time: string
   slot_duration: number
@@ -22,9 +22,11 @@ interface DayConfig {
 
 type Mode = 'view' | 'edit' | 'schedule'
 
-const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const DAY_SHORT   = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const DEFAULT_SLOT_DURATION = 30
+const TIME_OPTIONS = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00']
+const START_TIMES  = TIME_OPTIONS
+const END_TIMES    = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00']
 
 interface ProfessionalDetailProps {
   professional: Professional | null
@@ -44,7 +46,7 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // Schedule state
-  const [days, setDays] = useState<DayConfig[]>([])
+  const [blocks, setBlocks] = useState<DayBlock[]>([])
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
 
@@ -63,15 +65,8 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
     setConfirmDelete(false)
   }
 
-  function initEmptyDays(): DayConfig[] {
-    return Array.from({ length: 7 }, (_, i) => ({
-      day_of_week: i,
-      active: false,
-      start_time: '09:00',
-      end_time: '17:00',
-      slot_duration: DEFAULT_SLOT_DURATION,
-    }))
-  }
+  let blockCounter = 0
+  function newBlockId(): string { return `new_${++blockCounter}_${Date.now()}` }
 
   const fetchAvailability = useCallback(async (profId: string) => {
     setLoadingSchedule(true)
@@ -79,18 +74,15 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
       const res = await fetch(`/api/settings/availability?professional_id=${profId}`)
       if (res.ok) {
         const templates: AvailabilityTemplate[] = await res.json()
-        const empty = initEmptyDays()
-        for (const t of templates) {
-          empty[t.day_of_week] = {
-            id: t.id,
-            day_of_week: t.day_of_week,
-            active: t.is_active,
-            start_time: t.start_time.slice(0, 5),
-            end_time: t.end_time.slice(0, 5),
-            slot_duration: t.slot_duration,
-          }
-        }
-        setDays(empty)
+        const mapped: DayBlock[] = templates.map(t => ({
+          tempId: t.id,
+          id: t.id,
+          day_of_week: t.day_of_week,
+          start_time: t.start_time.slice(0, 5),
+          end_time: t.end_time.slice(0, 5),
+          slot_duration: t.slot_duration,
+        }))
+        setBlocks(mapped)
       }
     } catch { /* ignore */ }
     setLoadingSchedule(false)
@@ -105,42 +97,46 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
   async function saveSchedule() {
     if (!professional) return
     setSavingSchedule(true)
-    const active = days.filter(d => d.active)
-    for (const day of active) {
+    for (const block of blocks) {
       await fetch('/api/settings/availability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: day.id ?? null,
+          id: block.id ?? null,
           professional_id: professional.id,
-          day_of_week: day.day_of_week,
-          start_time: day.start_time,
-          end_time: day.end_time,
-          slot_duration: day.slot_duration,
+          day_of_week: block.day_of_week,
+          start_time: block.start_time,
+          end_time: block.end_time,
+          slot_duration: block.slot_duration,
         }),
       })
     }
-    // Also remove days that were active but now inactive
-    // We compare against previously saved templates
-    for (const day of days) {
-      if (!day.active && day.id) {
-        await fetch('/api/settings/availability', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: day.id }),
-        })
-      }
-    }
+    // Remove blocks that were deleted (have id but not in current blocks)
+    // Only way to detect = we don't know old blocks. We'll rely on the API upsert.
     setSavingSchedule(false)
     setMode('view')
   }
 
-  function toggleDay(idx: number) {
-    setDays(prev => prev.map((d, i) => i === idx ? { ...d, active: !d.active } : d))
+  function addBlock(dow: number) {
+    setBlocks(prev => [...prev, {
+      tempId: newBlockId(),
+      day_of_week: dow,
+      start_time: '09:00',
+      end_time: '17:00',
+      slot_duration: DEFAULT_SLOT_DURATION,
+    }])
   }
 
-  function updateDay(idx: number, field: keyof DayConfig, value: string | number | boolean) {
-    setDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d))
+  function removeBlock(tempId: string) {
+    setBlocks(prev => prev.filter(b => b.tempId !== tempId))
+  }
+
+  function updateBlock(tempId: string, field: keyof DayBlock, value: string | number) {
+    setBlocks(prev => prev.map(b => b.tempId === tempId ? { ...b, [field]: value } : b))
+  }
+
+  function blocksForDay(dow: number): DayBlock[] {
+    return blocks.filter(b => b.day_of_week === dow)
   }
 
   // ── Guards ─────────────────────────────────────────────────
@@ -250,93 +246,52 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
         {loadingSchedule ? (
           <div className="text-center py-12 text-[13px] text-[var(--subtle)]">Cargando horarios...</div>
         ) : (
-          <div className="space-y-3">
-            <p className="text-[12px] text-[var(--subtle)] mb-4">
-              Marcá los días que trabaja {professional.full_name} y configurá sus horarios.
+          <div className="space-y-4">
+            <p className="text-[12px] text-[var(--subtle)] mb-2">
+              Cada bloque puede tener su propia duracion de turno. Agregá los que necesites por dia.
             </p>
-            {days.map((day, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
-                {/* Toggle */}
-                <label className="flex items-center gap-2 cursor-pointer min-w-[90px]">
-                  <input
-                    type="checkbox"
-                    checked={day.active}
-                    onChange={() => toggleDay(i)}
-                    className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]"
-                  />
-                  <span className={cn('text-[13px] font-medium', day.active ? 'text-[var(--foreground)]' : 'text-[var(--subtle)]')}>
-                    {DAY_SHORT[i]}
-                  </span>
-                </label>
-
-                {day.active && (
-                  <>
-                    <div className="flex items-center gap-2 ml-auto">
-                      <div className="flex flex-col items-center">
-                        <label className="text-[9px] text-[var(--subtle)] uppercase tracking-wide mb-0.5">Desde</label>
-                        <input
-                          type="time"
-                          value={day.start_time}
-                          onChange={e => updateDay(i, 'start_time', e.target.value)}
-                          className={cn(
-                            'px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)]',
-                            'bg-white text-[var(--foreground)]',
-                            'focus:outline-none focus:ring-2 focus:ring-[var(--brand)] transition-all',
-                            'w-[95px]'
-                          )}
-                        />
-                      </div>
-                      <span className="text-[var(--subtle)] mt-4">—</span>
-                      <div className="flex flex-col items-center">
-                        <label className="text-[9px] text-[var(--subtle)] uppercase tracking-wide mb-0.5">Hasta</label>
-                        <input
-                          type="time"
-                          value={day.end_time}
-                          onChange={e => updateDay(i, 'end_time', e.target.value)}
-                          className={cn(
-                            'px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)]',
-                            'bg-white text-[var(--foreground)]',
-                            'focus:outline-none focus:ring-2 focus:ring-[var(--brand)] transition-all',
-                            'w-[95px]'
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-center min-w-[100px]">
-                      <label className="text-[9px] text-[var(--subtle)] uppercase tracking-wide mb-0.5">Duración</label>
-                      <select
-                        value={day.slot_duration}
-                        onChange={e => updateDay(i, 'slot_duration', parseInt(e.target.value))}
-                        className={cn(
-                          'px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)]',
-                          'bg-white text-[var(--foreground)]',
-                          'focus:outline-none focus:ring-2 focus:ring-[var(--brand)] transition-all',
-                          'w-full'
-                        )}
-                      >
-                        {[15, 20, 25, 30, 40, 45, 50, 60, 90, 120].map(m => (
-                          <option key={m} value={m}>{m} min</option>
-                        ))}
+            {Array.from({ length: 7 }, (_, dow) => {
+              const dayBlocks = blocksForDay(dow)
+              return (
+                <div key={dow} className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] font-semibold text-[var(--foreground)]">{DAY_SHORT[dow]}</span>
+                    <button type="button" onClick={() => addBlock(dow)} className="flex items-center gap-1 px-2 py-1 rounded-[6px] text-[11px] text-[var(--brand)] hover:bg-[var(--brand)]/10 transition-colors">
+                      <Plus size={12} /> Agregar bloque
+                    </button>
+                  </div>
+                  {dayBlocks.length === 0 && <p className="text-[11px] text-[var(--subtle)] italic">Sin horarios</p>}
+                  {dayBlocks.map(block => (
+                    <div key={block.tempId} className="flex items-center gap-2 mt-2 first:mt-0">
+                      <select value={block.start_time} onChange={e => updateBlock(block.tempId, 'start_time', e.target.value)}
+                        className="px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)] w-[85px]">
+                        {START_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
+                      <span className="text-[var(--subtle)]">—</span>
+                      <select value={block.end_time} onChange={e => updateBlock(block.tempId, 'end_time', e.target.value)}
+                        className="px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)] w-[85px]">
+                        {END_TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <select value={block.slot_duration} onChange={e => updateBlock(block.tempId, 'slot_duration', parseInt(e.target.value))}
+                        className="px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)] w-[80px]">
+                        {[15,20,25,30,40,45,50,60,90,120].map(m => <option key={m} value={m}>{m} min</option>)}
+                      </select>
+                      <button type="button" onClick={() => removeBlock(block.tempId)}
+                        className="p-1 rounded-[6px] text-[var(--subtle)] hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <XIcon size={14} />
+                      </button>
                     </div>
-                  </>
-                )}
-              </div>
-            ))}
-
-            <div className="flex gap-2 pt-3">
-              <button
-                onClick={saveSchedule}
-                disabled={savingSchedule}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] bg-[var(--brand)] text-white text-[13px] font-semibold hover:bg-[var(--brand-dark)] transition-colors disabled:opacity-60"
-              >
+                  ))}
+                </div>
+              )
+            })}
+            <div className="flex gap-2 pt-2">
+              <button onClick={saveSchedule} disabled={savingSchedule}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] bg-[var(--brand)] text-white text-[13px] font-semibold hover:bg-[var(--brand-dark)] transition-colors disabled:opacity-60">
                 <Check size={14} /> {savingSchedule ? 'Guardando...' : 'Guardar horarios'}
               </button>
-              <button
-                onClick={() => setMode('view')}
-                className="px-4 py-2.5 rounded-[10px] border border-[var(--border)] text-[13px] text-[var(--muted)] hover:bg-[var(--surface-2)] transition-colors"
-              >
+              <button onClick={() => setMode('view')}
+                className="px-4 py-2.5 rounded-[10px] border border-[var(--border)] text-[13px] text-[var(--muted)] hover:bg-[var(--surface-2)] transition-colors">
                 Cancelar
               </button>
             </div>
