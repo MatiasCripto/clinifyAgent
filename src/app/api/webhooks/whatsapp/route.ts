@@ -54,8 +54,73 @@ async function saveMessage(convId: string, direction: 'inbound' | 'outbound', co
 
 // ── Appointment helpers ───────────────────────────────────────
 
-const ALL_TIMES = ['09:00','09:30','10:00','10:30','11:00','11:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
 const DAY_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+
+// Generate time slots from availability templates
+function generateSlotsFromTemplates(
+  templates: Array<{ start_time: string; end_time: string; slot_duration: number }>,
+  dateStr: string,
+  takenSlots: Set<string>,
+  maxResults: number
+): Array<{ date: string; time: string; label: string; duration: number }> {
+  const result: Array<{ date: string; time: string; label: string; duration: number }> = []
+  for (const tmpl of templates) {
+    const [sh, sm] = tmpl.start_time.split(':').map(Number)
+    const [eh, em] = tmpl.end_time.split(':').map(Number)
+    const startMin = sh * 60 + sm
+    const endMin = eh * 60 + em
+    const dur = tmpl.slot_duration || 30
+
+    for (let m = startMin; m + dur <= endMin; m += dur) {
+      const hh = String(Math.floor(m / 60)).padStart(2, '0')
+      const mm = String(m % 60).padStart(2, '0')
+      const time = `${hh}:${mm}`
+      if (!takenSlots.has(`${dateStr}|${time}`)) {
+        result.push({ date: dateStr, time, duration: dur, label: `a las ${time}` })
+        if (maxResults > 0 && result.length >= maxResults) break
+      }
+    }
+    if (maxResults > 0 && result.length >= maxResults) break
+  }
+  return result
+}
+
+// Default fallback slots if no availability configured (Mon-Sat 09:00-18:00, 30 min)
+function generateDefaultSlots(
+  dateStr: string,
+  takenSlots: Set<string>,
+  maxResults: number
+): Array<{ date: string; time: string; label: string; duration: number }> {
+  const templates = [
+    { start_time: '09:00', end_time: '13:00', slot_duration: 30 },
+    { start_time: '14:00', end_time: '18:00', slot_duration: 30 },
+  ]
+  return generateSlotsFromTemplates(templates, dateStr, takenSlots, maxResults)
+}
+
+async function getProfessionalId(name: string): Promise<string | null> {
+  const sb = createServiceClient()
+  const stripped = name.replace(/^Dra?\.\s*/i, '')
+  const { data } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle()
+  return data?.id ?? null
+}
+
+async function getAvailabilityForProfessional(professionalId: string): Promise<Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }>> {
+  const sb = createServiceClient()
+  const { data } = await sb
+    .from('availability_templates')
+    .select('day_of_week, start_time, end_time, slot_duration')
+    .eq('professional_id', professionalId)
+    .eq('is_active', true)
+  return data ?? []
+}
+
+function formatDateKey(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yyyy = date.getFullYear()
+  return `${dd}/${mm}/${yyyy}`
+}
 
 async function fetchUpcomingAppointments(patientId: string) {
   const sb = createServiceClient()
@@ -89,86 +154,114 @@ async function fetchSpecialties(): Promise<string[]> {
 }
 
 async function fetchAvailableDates(professionalName: string | null): Promise<{ date: string; label: string }[]> {
-  const sb = createServiceClient()
   const today = new Date()
   const candidateDates: string[] = []
   for (let i = 1; i <= 21; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
     if (d.getDay() !== 0) {
-      candidateDates.push(d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }))
+      candidateDates.push(formatDateKey(d))
     }
     if (candidateDates.length >= 14) break
   }
 
-  let professionalId: string | null = null
-  if (professionalName && professionalName !== 'Sin preferencia') {
-    const stripped = professionalName.replace(/^Dra?\.\s*/i, '')
-    const { data: prof } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle()
-    professionalId = prof?.id ?? null
-  }
+  const foundDates: { date: string; label: string }[] = []
 
-  const [fd, fm, fy] = candidateDates[0].split('/')
-  const [ld, lm, ly] = candidateDates[candidateDates.length - 1].split('/')
-  const startISO = new Date(`${fy}-${fm}-${fd}T00:00:00`).toISOString()
-  const endISO   = new Date(`${ly}-${lm}-${ld}T23:59:59`).toISOString()
-
-  let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
-  if (professionalId) query = query.eq('professional_id', professionalId)
-  const { data: taken } = await query
-
-  const takenSet = new Set((taken ?? []).map((a: { starts_at: string }) => {
-    const d = new Date(a.starts_at)
-    return `${d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}|${d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-  }))
-
-  const result: { date: string; label: string }[] = []
-  for (const date of candidateDates) {
-    if (ALL_TIMES.some(t => !takenSet.has(`${date}|${t}`))) {
-      const [d, m, y] = date.split('/')
-      const dayName = DAY_NAMES[new Date(`${y}-${m}-${d}T12:00:00`).getDay()]
-      result.push({ date, label: `${dayName} ${d}/${m}` })
-      if (result.length >= 7) break
+  for (const dateKey of candidateDates) {
+    const [dd, mm, yy] = dateKey.split('/').map(Number)
+    const dow = new Date(yy, mm - 1, dd, 12).getDay()
+    const daySlots = await getSlotsForDate(dow, dateKey, professionalName)
+    if (daySlots.length > 0) {
+      const dayName = DAY_NAMES[dow]
+      foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}` })
+      if (foundDates.length >= 7) break
     }
   }
-  return result
+  return foundDates
+}
+
+async function getSlotsForDate(
+  dayOfWeek: number,
+  dateKey: string,
+  professionalName: string | null,
+  maxSlots = 9
+): Promise<Array<{ date: string; time: string; label: string; duration: number }>> {
+  const sb = createServiceClient()
+  const [dd, mm, yy] = dateKey.split('/').map(Number)
+  const startISO = new Date(yy, mm - 1, dd, 0, 0).toISOString()
+  const endISO   = new Date(yy, mm - 1, dd, 23, 59).toISOString()
+  const dayName  = DAY_NAMES[dayOfWeek]
+
+  let professionalIds: string[] = []
+
+  if (professionalName && professionalName !== 'Sin preferencia') {
+    const pid = await getProfessionalId(professionalName)
+    if (pid) professionalIds = [pid]
+  } else {
+    // No preference — get all active professionals
+    const { data: all } = await sb.from('professionals').select('id').eq('is_active', true)
+    professionalIds = (all ?? []).map(p => p.id)
+  }
+
+  // Collect all templates across professionals for this day
+  let allSlots: Array<{ date: string; time: string; label: string; duration: number }> = []
+
+  for (const pid of professionalIds) {
+    const templates = await getAvailabilityForProfessional(pid)
+    const dayTemplates = templates.filter(t => t.day_of_week === dayOfWeek || t.day_of_week === dayOfWeek % 7)
+
+    if (dayTemplates.length === 0) continue
+
+    // Build taken set for this professional on this date
+    let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
+    const { data: taken } = await query.eq('professional_id', pid)
+
+    const takenSet = new Set<string>()
+    for (const a of (taken ?? [])) {
+      const d2 = new Date(a.starts_at)
+      const tKey = `${String(d2.getHours()).padStart(2, '0')}:${String(d2.getMinutes()).padStart(2, '0')}`
+      takenSet.add(`${dateKey}|${tKey}`)
+    }
+
+    const slots = generateSlotsFromTemplates(dayTemplates, dateKey, takenSet, maxSlots)
+      .map(s => ({ ...s, label: `${dayName} ${dd}/${mm} ${s.label}` }))
+    allSlots = [...allSlots, ...slots]
+  }
+
+  // If no professionals have availability configured, fall back to defaults
+  if (allSlots.length === 0) {
+    let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
+    if (professionalIds.length === 1) query = query.eq('professional_id', professionalIds[0])
+    const { data: taken } = await query
+    const takenSet = new Set<string>()
+    for (const a of (taken ?? [])) {
+      const d2 = new Date(a.starts_at)
+      const tKey = `${String(d2.getHours()).padStart(2, '0')}:${String(d2.getMinutes()).padStart(2, '0')}`
+      takenSet.add(`${dateKey}|${tKey}`)
+    }
+    allSlots = generateDefaultSlots(dateKey, takenSet, maxSlots)
+      .map(s => ({ ...s, label: `${dayName} ${dd}/${mm} ${s.label}` }))
+  }
+
+  return allSlots.slice(0, maxSlots)
 }
 
 async function fetchAvailableSlots(dateKey: string, professionalName: string | null): Promise<{ date: string; time: string; label: string }[]> {
-  const sb = createServiceClient()
-  let professionalId: string | null = null
-  if (professionalName && professionalName !== 'Sin preferencia') {
-    const stripped = professionalName.replace(/^Dra?\.\s*/i, '')
-    const { data: prof } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle()
-    professionalId = prof?.id ?? null
-  }
-
-  const [d, m, y] = dateKey.split('/')
-  const startISO = new Date(`${y}-${m}-${d}T00:00:00`).toISOString()
-  const endISO   = new Date(`${y}-${m}-${d}T23:59:59`).toISOString()
-
-  let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
-  if (professionalId) query = query.eq('professional_id', professionalId)
-  const { data: taken } = await query
-
-  const takenSet = new Set((taken ?? []).map((a: { starts_at: string }) => {
-    const d2 = new Date(a.starts_at)
-    return `${d2.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}|${d2.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+  const [dd, mm, yy] = dateKey.split('/').map(Number)
+  const dow = new Date(yy, mm - 1, dd, 12).getDay()
+  const slots = await getSlotsForDate(dow, dateKey, professionalName)
+  return slots.map(s => ({
+    date: s.date,
+    time: s.time,
+    label: s.label,
   }))
-
-  const [dd, mm, yy] = dateKey.split('/')
-  const dayName = DAY_NAMES[new Date(`${yy}-${mm}-${dd}T12:00:00`).getDay()]
-  return ALL_TIMES
-    .filter(time => !takenSet.has(`${dateKey}|${time}`))
-    .slice(0, 9)
-    .map((time, i) => ({ date: dateKey, time, label: `${dayName} ${dd}/${mm} a las ${time}` }))
 }
 
-function parseDateToISO(dateStr: string, timeStr: string) {
+function parseDateToISO(dateStr: string, timeStr: string, durationMin = 30) {
   const [day, month, year] = dateStr.split('/')
   const iso = `${year}-${(month ?? '01').padStart(2, '0')}-${(day ?? '01').padStart(2, '0')}T${timeStr ?? '09:00'}:00`
   const start = new Date(iso)
-  return { starts_at: start.toISOString(), ends_at: new Date(start.getTime() + 30 * 60_000).toISOString() }
+  return { starts_at: start.toISOString(), ends_at: new Date(start.getTime() + durationMin * 60_000).toISOString() }
 }
 
 async function saveAppointmentFromBot(ctx: BotContext): Promise<void> {
@@ -208,7 +301,17 @@ async function saveAppointmentFromBot(ctx: BotContext): Promise<void> {
   }
   if (!professionalId) return
 
-  const { starts_at, ends_at } = parseDateToISO(ctx.selectedDate, ctx.selectedTime)
+  // Get slot duration from availability templates
+  let slotDuration = 30
+  if (ctx.selectedDate) {
+    const [dd, mm, yy] = ctx.selectedDate.split('/').map(Number)
+    const dow = new Date(yy, mm - 1, dd, 12).getDay()
+    const templates = await getAvailabilityForProfessional(professionalId)
+    const dayTemplate = templates.find(t => t.day_of_week === dow)
+    if (dayTemplate) slotDuration = dayTemplate.slot_duration || 30
+  }
+
+  const { starts_at, ends_at } = parseDateToISO(ctx.selectedDate, ctx.selectedTime, slotDuration)
   await sb.from('appointments').insert({
     clinic_id: (clinic as Record<string, string>).id,
     patient_id: patientId,
