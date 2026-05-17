@@ -22,11 +22,10 @@ export async function GET() {
   const profile = await getProfile()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('specialties')
-    .select('*')
-    .eq('organization_id', profile.organization_id)
-    .order('name')
+  let query = admin.from('specialties').select('*').order('name')
+  if (profile.organization_id) query = query.eq('organization_id', profile.organization_id)
+  else if (profile.role !== 'superadmin') query = query.is('organization_id', null)
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data ?? [])
 }

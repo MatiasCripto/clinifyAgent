@@ -71,10 +71,12 @@ export interface Professional {
   is_active: boolean
   bio: string | null
   license_number: string | null
+  profile_id: string | null
   created_at: string
   updated_at: string
   // Joined
   specialty?: Specialty
+  profile?: Profile
 }
 
 export interface AvailabilityTemplate {
@@ -243,4 +245,25 @@ export interface AutomationLog {
   payload: Json | null
   error: string | null
   executed_at: string
+}
+
+export interface DaySchedule {
+  is_working: boolean
+  start_time?: string
+  end_time?: string
+  slots?: SlotDuration[]
+}
+
+export interface SlotDuration {
+  duration: number
+}
+
+export interface WeeklySchedule {
+  id: string
+  professional_id: string
+  clinic_id: string | null
+  week_start_date: string
+  schedule: Record<string, DaySchedule>
+  created_at: string
+  updated_at: string
 }

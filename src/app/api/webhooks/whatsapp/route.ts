@@ -1,18 +1,26 @@
+// ── WhatsApp webhook (Evolution API) ───────────────────────────
+// Architecture: AI-first
+//   - The AI generates ALL patient-facing responses
+//   - The rule-based engine only tracks conversation state
+//   - Real data (specialties, professionals, availability) is
+//     fetched from Supabase and injected into the AI context
+//   - Rule-based responses are fallback ONLY (AI unavailable)
+
 import { NextRequest, NextResponse } from 'next/server'
 import type { EvolutionWebhookPayload, EvolutionMessageData, BotContext } from '@/lib/types/whatsapp.types'
 import { extractPhone, extractText } from '@/lib/bot/intent-classifier'
 import { processMessage, createInitialContext } from '@/lib/bot/conversation-engine'
 import { sendMultiple } from '@/lib/bot/evolution-client'
 import { createServiceClient } from '@/lib/supabase/service'
+import { generateAiResponse } from '@/lib/bot/ai-chat'
+import type { AiContext } from '@/lib/bot/ai-chat'
 
-// ── Context — Map en memoria (primario) + Supabase (respaldo) ─
+// ── In-memory context cache ────────────────────────────────────
 
 const ctxMap = new Map<string, BotContext>()
 
 async function loadContext(phone: string): Promise<BotContext | null> {
-  // 1. Intentar desde memoria
-  if (ctxMap.has(phone)) return ctxMap.get(phone)!
-  // 2. Intentar desde Supabase (si la migración 004 está aplicada)
+  // Always check Supabase first to survive server restarts / hot reload
   try {
     const sb = createServiceClient()
     const { data } = await sb
@@ -22,21 +30,36 @@ async function loadContext(phone: string): Promise<BotContext | null> {
       .maybeSingle()
     if (data?.context) {
       const ctx = data.context as BotContext
+      // Sanitize: detect corrupted patientName (set from "quiero sacar un turno" etc.)
+      if (ctx.patientName) {
+        const nameLower = ctx.patientName.toLowerCase()
+        const garbageWords = ['turno', 'sacar', 'reservar', 'quiero', 'necesito', 'agendar']
+        if (garbageWords.some(w => nameLower.includes(w))) {
+          console.log('[Bot] Sanitized corrupted patientName:', ctx.patientName)
+          ctx.patientName = null
+          ctx.isKnownPatient = false
+          ctx.state = 'idle'
+        }
+      }
       ctxMap.set(phone, ctx)
       return ctx
     }
-  } catch { /* tabla no existe aún, ignorar */ }
+  } catch { /* table may not exist yet */ }
+  // Fall back to memory cache
+  if (ctxMap.has(phone)) return ctxMap.get(phone)!
   return null
 }
 
 async function saveContext(phone: string, name: string | undefined, ctx: BotContext) {
   ctxMap.set(phone, ctx)
-  // Guardar en Supabase en background (no bloqueante)
-  const sb = createServiceClient()
-  void sb.from('wa_conversations').upsert(
-    { phone, name: name ?? null, bot_state: ctx.state, context: ctx, last_msg_at: new Date().toISOString() },
-    { onConflict: 'phone' }
-  )
+  // Persist to Supabase synchronously so context survives server restarts
+  try {
+    const sb = createServiceClient()
+    await sb.from('wa_conversations').upsert(
+      { phone, name: name ?? null, bot_state: ctx.state, context: ctx, last_msg_at: new Date().toISOString() },
+      { onConflict: 'phone' }
+    )
+  } catch { /* non-critical */ }
 }
 
 async function getConvId(phone: string): Promise<string | null> {
@@ -52,70 +75,14 @@ async function saveMessage(convId: string, direction: 'inbound' | 'outbound', co
   await sb.from('wa_messages').insert({ conversation_id: convId, direction, content })
 }
 
-// ── Appointment helpers ───────────────────────────────────────
+// ── Data fetchers (real DB, no hardcoded fallbacks) ─────────────
+
+// Strip accents for comparison (e.g., "Kinesiología" → "Kinesiologia")
+function normalize(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
 
 const DAY_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
-
-// Generate time slots from availability templates
-function generateSlotsFromTemplates(
-  templates: Array<{ start_time: string; end_time: string; slot_duration: number }>,
-  dateStr: string,
-  takenSlots: Set<string>,
-  maxResults: number
-): Array<{ date: string; time: string; label: string; duration: number }> {
-  const result: Array<{ date: string; time: string; label: string; duration: number }> = []
-  for (const tmpl of templates) {
-    const [sh, sm] = tmpl.start_time.split(':').map(Number)
-    const [eh, em] = tmpl.end_time.split(':').map(Number)
-    const startMin = sh * 60 + sm
-    const endMin = eh * 60 + em
-    const dur = tmpl.slot_duration || 30
-
-    for (let m = startMin; m + dur <= endMin; m += dur) {
-      const hh = String(Math.floor(m / 60)).padStart(2, '0')
-      const mm = String(m % 60).padStart(2, '0')
-      const time = `${hh}:${mm}`
-      if (!takenSlots.has(`${dateStr}|${time}`)) {
-        result.push({ date: dateStr, time, duration: dur, label: `a las ${time}` })
-        if (maxResults > 0 && result.length >= maxResults) break
-      }
-    }
-    if (maxResults > 0 && result.length >= maxResults) break
-  }
-  return result
-}
-
-// Default fallback slots if no availability configured (Mon-Sat 09:00-18:00, 30 min)
-function generateDefaultSlots(
-  dateStr: string,
-  takenSlots: Set<string>,
-  maxResults: number
-): Array<{ date: string; time: string; label: string; duration: number }> {
-  const templates = [
-    { start_time: '09:00', end_time: '13:00', slot_duration: 30 },
-    { start_time: '14:00', end_time: '18:00', slot_duration: 30 },
-  ]
-  return generateSlotsFromTemplates(templates, dateStr, takenSlots, maxResults)
-}
-
-async function getProfessionalId(name: string, orgId?: string): Promise<string | null> {
-  const sb = createServiceClient()
-  const stripped = name.replace(/^Dra?\.\s*/i, '')
-  let query = sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1)
-  if (orgId) query = query.eq('organization_id', orgId)
-  const { data } = await query.maybeSingle()
-  return data?.id ?? null
-}
-
-async function getAvailabilityForProfessional(professionalId: string): Promise<Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }>> {
-  const sb = createServiceClient()
-  const { data } = await sb
-    .from('availability_templates')
-    .select('day_of_week, start_time, end_time, slot_duration')
-    .eq('professional_id', professionalId)
-    .eq('is_active', true)
-  return data ?? []
-}
 
 function formatDateKey(date: Date): string {
   const dd = String(date.getDate()).padStart(2, '0')
@@ -124,66 +91,202 @@ function formatDateKey(date: Date): string {
   return `${dd}/${mm}/${yyyy}`
 }
 
-async function fetchUpcomingAppointments(patientId: string) {
+// ── Specialty-professional mapping (JS-side join — no Supabase embedded joins) ─
+
+async function getSpecialtyMap(): Promise<Map<string, string>> {
   const sb = createServiceClient()
-  const { data } = await sb
-    .from('appointments')
-    .select('id, starts_at, treatment, professional:professionals(full_name)')
-    .eq('patient_id', patientId)
-    .not('status', 'eq', 'cancelled')
-    .gte('starts_at', new Date().toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(5)
-  return (data ?? []).map((a: Record<string, unknown>) => ({
-    id: a.id as string,
-    date: new Date(a.starts_at as string).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
-    time: new Date(a.starts_at as string).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }),
-    professional: (a.professional as Record<string, string> | null)?.full_name ?? 'Profesional',
-    specialty: (a.treatment as string) ?? 'Consulta',
-  }))
+  const { data: specs } = await sb.from('specialties').select('id, name')
+  const map = new Map<string, string>()
+  for (const s of (specs ?? [])) map.set(s.id, s.name)
+  return map
 }
 
 async function fetchProfessionals(orgId?: string): Promise<string[]> {
   const sb = createServiceClient()
-  let query = sb.from('professionals').select('full_name').eq('is_active', true).order('full_name')
-  if (orgId) query = query.eq('organization_id', orgId)
-  const { data } = await query
-  return (data ?? []).map((p: { full_name: string }) => p.full_name)
+  let q = sb.from('professionals').select('full_name, specialty_id, organization_id').eq('is_active', true).order('full_name')
+  if (orgId) q = q.eq('organization_id', orgId)
+  const [{ data: profs }, specMap] = await Promise.all([q, getSpecialtyMap()])
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const p of (profs ?? [])) {
+    const specName = specMap.get(p.specialty_id) ?? ''
+    const label = specName ? `${p.full_name} (${specName})` : (p.full_name as string)
+    if (!seen.has(label)) { seen.add(label); result.push(label) }
+  }
+  return result
+}
+
+async function fetchProfessionalsForSpecialty(specialtyName: string, orgId?: string): Promise<string[]> {
+  const sb = createServiceClient()
+  const specMap = await getSpecialtyMap()
+  const normalizedSearch = normalize(specialtyName.toLowerCase())
+  const matchingIds: string[] = []
+  for (const [id, name] of specMap) {
+    if (normalize(name.toLowerCase()) === normalizedSearch) matchingIds.push(id)
+  }
+  if (matchingIds.length === 0) return []
+  let q = sb.from('professionals')
+    .select('full_name').eq('is_active', true).in('specialty_id', matchingIds).order('full_name')
+  if (orgId) q = q.eq('organization_id', orgId)
+  const { data: profs } = await q
+  return (profs ?? []).map((p: { full_name: string }) => `${p.full_name} (${specialtyName})`)
+}
+
+async function fetchSpecialtyForProfessional(professionalName: string): Promise<string | null> {
+  const stripped = professionalName.replace(/\s*\(.*\)\s*$/, '').replace(/^Dra?\.\s*/i, '')
+  const sb = createServiceClient()
+  const [{ data: prof }, specMap] = await Promise.all([
+    sb.from('professionals').select('specialty_id').ilike('full_name', `%${stripped}%`).limit(1).maybeSingle(),
+    getSpecialtyMap(),
+  ])
+  return prof ? (specMap.get(prof.specialty_id) ?? null) : null
 }
 
 async function fetchSpecialties(orgId?: string): Promise<string[]> {
   const sb = createServiceClient()
-  let query = sb.from('specialties').select('name').order('name')
-  if (orgId) query = query.eq('organization_id', orgId)
-  const { data } = await query
-  return (data ?? []).map((s: { name: string }) => s.name)
+  let q = sb.from('professionals').select('specialty_id').eq('is_active', true)
+  if (orgId) q = q.eq('organization_id', orgId)
+  const [{ data: profs }, specMap] = await Promise.all([q, getSpecialtyMap()])
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const p of (profs ?? [])) {
+    const name = specMap.get(p.specialty_id)
+    if (name && !seen.has(name)) { seen.add(name); result.push(name) }
+  }
+  result.sort()
+  return result
 }
 
-async function fetchAvailableDates(professionalName: string | null, orgId?: string): Promise<{ date: string; label: string }[]> {
-  const today = new Date()
-  const candidateDates: string[] = []
-  for (let i = 1; i <= 21; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
-    if (d.getDay() !== 0) {
-      candidateDates.push(formatDateKey(d))
-    }
-    if (candidateDates.length >= 14) break
+async function getProfessionalId(name: string, orgId?: string): Promise<string | null> {
+  const sb = createServiceClient()
+  const stripped = name.replace(/\s*\(.*\)\s*$/, '').replace(/^Dra?\.\s*/i, '').trim()
+  let query = sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).limit(1)
+  const { data } = await query.maybeSingle()
+  return data?.id ?? null
+}
+
+async function getScheduleForProfessional(professionalId: string): Promise<{
+  templates: Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }>
+  weeklyInfo: string  // human-readable schedule summary for AI
+  daySlots: Record<number, Array<{ areaName: string | null; duration: number }>> // per-day slot definitions with area
+}> {
+  const sb = createServiceClient()
+  // Query weekly_schedules (the table used by the Settings UI)
+  const { data } = await sb
+    .from('weekly_schedules')
+    .select('schedule')
+    .eq('professional_id', professionalId)
+    .order('week_start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const schedule = (data?.schedule ?? {}) as Record<string, { is_working?: boolean; start_time?: string; end_time?: string; slot_duration?: number; slots?: Array<{ area_id?: string; duration: number }> }>
+  const templates: Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }> = []
+  const daySlots: Record<number, Array<{ areaName: string | null; duration: number }>> = {}
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  const weeklyParts: string[] = []
+
+  // Pre-fetch all area names for this professional
+  const areaIds = new Set<string>()
+  for (const [, day] of Object.entries(schedule)) {
+    for (const s of (day.slots ?? [])) { if (s.area_id) areaIds.add(s.area_id) }
+  }
+  let areaMap: Record<string, string> = {}
+  if (areaIds.size > 0) {
+    const { data: areas } = await sb.from('service_areas')
+      .select('id, name')
+      .in('id', Array.from(areaIds))
+    for (const a of (areas ?? [])) areaMap[a.id] = a.name
   }
 
-  const foundDates: { date: string; label: string }[] = []
+  for (const [key, day] of Object.entries(schedule)) {
+    if (!day.is_working || !day.start_time || !day.end_time) continue
+    const dow = parseInt(key)
+    templates.push({
+      day_of_week: dow,
+      start_time: day.start_time,
+      end_time: day.end_time,
+      slot_duration: day.slot_duration || 30,
+    })
+    weeklyParts.push(`${dayNames[dow]} ${day.start_time.slice(0, 5)}-${day.end_time.slice(0, 5)}`)
 
-  for (const dateKey of candidateDates) {
-    const [dd, mm, yy] = dateKey.split('/').map(Number)
-    const dow = new Date(yy, mm - 1, dd, 12).getDay()
-    const daySlots = await getSlotsForDate(dow, dateKey, professionalName, 9, orgId)
-    if (daySlots.length > 0) {
-      const dayName = DAY_NAMES[dow]
-      foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}` })
-      if (foundDates.length >= 7) break
+    // Preserve per-slot area/duration info
+    if ((day.slots ?? []).length > 0) {
+      daySlots[dow] = (day.slots ?? []).map(s => ({
+        areaName: s.area_id ? (areaMap[s.area_id] ?? null) : null,
+        duration: s.duration || 30,
+      }))
     }
   }
-  return foundDates
+
+  // Also fallback to availability_templates for backward compatibility
+  if (templates.length === 0) {
+    const { data: legacy } = await sb
+      .from('availability_templates')
+      .select('day_of_week, start_time, end_time, slot_duration')
+      .eq('professional_id', professionalId)
+      .eq('is_active', true)
+    for (const t of (legacy ?? [])) {
+      templates.push(t)
+      weeklyParts.push(`${dayNames[t.day_of_week]} ${t.start_time.slice(0, 5)}-${t.end_time.slice(0, 5)}`)
+    }
+  }
+
+  return { templates, weeklyInfo: weeklyParts.join(', ') || 'Sin horarios cargados', daySlots }
+}
+
+function generateSlotsFromTemplates(
+  templates: Array<{ start_time: string; end_time: string; slot_duration: number }>,
+  dateStr: string,
+  takenSlots: Set<string>,
+  maxResults: number,
+  daySlots?: Array<{ areaName: string | null; duration: number }> | null
+): Array<{ date: string; time: string; label: string; duration: number }> {
+  const result: Array<{ date: string; time: string; label: string; duration: number }> = []
+
+  if (daySlots && daySlots.length > 0) {
+    // Use per-slot definitions from the schedule (respects area assignments and varying durations)
+    const [sh, sm] = templates[0]?.start_time?.split(':').map(Number) ?? [8, 0]
+    let cursorMin = sh * 60 + sm
+    let slotIdx = 0
+
+    while (slotIdx < daySlots.length) {
+      const slot = daySlots[slotIdx]
+      const totalMin = cursorMin + slot.duration
+      const hh = String(Math.floor(cursorMin / 60)).padStart(2, '0')
+      const mm = String(cursorMin % 60).padStart(2, '0')
+      const time = `${hh}:${mm}`
+
+      if (!takenSlots.has(`${dateStr}|${time}`)) {
+        const areaSuffix = slot.areaName ? ` — ${slot.areaName} (${slot.duration} min)` : ''
+        result.push({ date: dateStr, time, duration: slot.duration, label: `a las ${time}${areaSuffix}` })
+        if (maxResults > 0 && result.length >= maxResults) break
+      }
+      cursorMin += slot.duration
+      slotIdx++
+    }
+  } else {
+    // Fallback: generate uniform slots within the time block
+    for (const tmpl of templates) {
+      const [sh, sm] = tmpl.start_time.split(':').map(Number)
+      const [eh, em] = tmpl.end_time.split(':').map(Number)
+      const startMin = sh * 60 + sm
+      const endMin = eh * 60 + em
+      const step = tmpl.slot_duration || 30
+
+      for (let min = startMin; min + step <= endMin; min += step) {
+        const hh = String(Math.floor(min / 60)).padStart(2, '0')
+        const mm = String(min % 60).padStart(2, '0')
+        const time = `${hh}:${mm}`
+        if (!takenSlots.has(`${dateStr}|${time}`)) {
+          result.push({ date: dateStr, time, duration: step, label: `a las ${time}` })
+          if (maxResults > 0 && result.length >= maxResults) break
+        }
+      }
+      if (maxResults > 0 && result.length >= maxResults) break
+    }
+  }
+  return result
 }
 
 async function getSlotsForDate(
@@ -205,23 +308,20 @@ async function getSlotsForDate(
     const pid = await getProfessionalId(professionalName, orgId)
     if (pid) professionalIds = [pid]
   } else {
-    // No preference — get all active professionals for this org
     let q = sb.from('professionals').select('id').eq('is_active', true)
     if (orgId) q = q.eq('organization_id', orgId)
     const { data: all } = await q
-    professionalIds = (all ?? []).map(p => p.id)
+    professionalIds = (all ?? []).map((p: { id: string }) => p.id)
   }
 
-  // Collect all templates across professionals for this day
   let allSlots: Array<{ date: string; time: string; label: string; duration: number }> = []
 
   for (const pid of professionalIds) {
-    const templates = await getAvailabilityForProfessional(pid)
-    const dayTemplates = templates.filter(t => t.day_of_week === dayOfWeek || t.day_of_week === dayOfWeek % 7)
+    const { templates, daySlots } = await getScheduleForProfessional(pid)
+    const dayTemplates = templates.filter(t => t.day_of_week === dayOfWeek)
 
     if (dayTemplates.length === 0) continue
 
-    // Build taken set for this professional on this date
     let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
     const { data: taken } = await query.eq('professional_id', pid)
 
@@ -232,27 +332,37 @@ async function getSlotsForDate(
       takenSet.add(`${dateKey}|${tKey}`)
     }
 
-    const slots = generateSlotsFromTemplates(dayTemplates, dateKey, takenSet, maxSlots)
+    const slots = generateSlotsFromTemplates(dayTemplates, dateKey, takenSet, maxSlots, daySlots?.[dayOfWeek] ?? null)
       .map(s => ({ ...s, label: `${dayName} ${dd}/${mm} ${s.label}` }))
     allSlots = [...allSlots, ...slots]
   }
 
-  // If no professionals have availability configured, fall back to defaults
-  if (allSlots.length === 0) {
-    let query = sb.from('appointments').select('starts_at').gte('starts_at', startISO).lte('starts_at', endISO).not('status', 'eq', 'cancelled')
-    if (professionalIds.length === 1) query = query.eq('professional_id', professionalIds[0])
-    const { data: taken } = await query
-    const takenSet = new Set<string>()
-    for (const a of (taken ?? [])) {
-      const d2 = new Date(a.starts_at)
-      const tKey = `${String(d2.getHours()).padStart(2, '0')}:${String(d2.getMinutes()).padStart(2, '0')}`
-      takenSet.add(`${dateKey}|${tKey}`)
-    }
-    allSlots = generateDefaultSlots(dateKey, takenSet, maxSlots)
-      .map(s => ({ ...s, label: `${dayName} ${dd}/${mm} ${s.label}` }))
+  return allSlots.slice(0, maxSlots)
+}
+
+async function fetchAvailableDates(professionalName: string | null, orgId?: string): Promise<{ date: string; label: string }[]> {
+  const today = new Date()
+  const candidateDates: string[] = []
+  for (let i = 1; i <= 21; i++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() + i)
+    candidateDates.push(formatDateKey(d))
+    if (candidateDates.length >= 14) break
   }
 
-  return allSlots.slice(0, maxSlots)
+  const foundDates: { date: string; label: string }[] = []
+
+  for (const dateKey of candidateDates) {
+    const [dd, mm, yy] = dateKey.split('/').map(Number)
+    const dow = new Date(yy, mm - 1, dd, 12).getDay()
+    const daySlots = await getSlotsForDate(dow, dateKey, professionalName, 9, orgId)
+    if (daySlots.length > 0) {
+      const dayName = DAY_NAMES[dow]
+      foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}` })
+      if (foundDates.length >= 7) break
+    }
+  }
+  return foundDates
 }
 
 async function fetchAvailableSlots(dateKey: string, professionalName: string | null, orgId?: string): Promise<{ date: string; time: string; label: string }[]> {
@@ -266,6 +376,47 @@ async function fetchAvailableSlots(dateKey: string, professionalName: string | n
   }))
 }
 
+// Pre-fetch available dates for ALL active professionals (summary for AI)
+async function fetchAllAvailability(orgId?: string): Promise<Record<string, string[]>> {
+  const allProfs = await fetchProfessionals(orgId)
+  // Process in small batches — fetch 2 weeks per professional name
+  const today = new Date()
+  const result: Record<string, string[]> = {}
+
+  for (const profLabel of allProfs) {
+    // Extract just the name (without specialty)
+    const profName = profLabel.replace(/\s*\(.*\)\s*$/, '')
+    try {
+      const dates = await fetchAvailableDates(profLabel, orgId)
+      if (dates.length > 0) {
+        result[profLabel] = dates.map(d => d.label)
+      }
+    } catch { /* skip if no schedule */ }
+  }
+  return result
+}
+
+async function fetchUpcomingAppointments(patientId: string) {
+  const sb = createServiceClient()
+  const { data } = await sb
+    .from('appointments')
+    .select('id, starts_at, treatment, professional:professionals(full_name)')
+    .eq('patient_id', patientId)
+    .not('status', 'eq', 'cancelled')
+    .gte('starts_at', new Date().toISOString())
+    .order('starts_at', { ascending: true })
+    .limit(5)
+  return (data ?? []).map((a: Record<string, unknown>) => ({
+    id: a.id as string,
+    date: new Date(a.starts_at as string).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }),
+    time: new Date(a.starts_at as string).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    professional: (a.professional as Record<string, string> | null)?.full_name ?? 'Profesional',
+    specialty: (a.treatment as string) ?? 'Consulta',
+  }))
+}
+
+// ── Appointment persistence ────────────────────────────────────
+
 function parseDateToISO(dateStr: string, timeStr: string, durationMin = 30) {
   const [day, month, year] = dateStr.split('/')
   const iso = `${year}-${(month ?? '01').padStart(2, '0')}-${(day ?? '01').padStart(2, '0')}T${timeStr ?? '09:00'}:00`
@@ -273,57 +424,87 @@ function parseDateToISO(dateStr: string, timeStr: string, durationMin = 30) {
   return { starts_at: start.toISOString(), ends_at: new Date(start.getTime() + durationMin * 60_000).toISOString() }
 }
 
-async function saveAppointmentFromBot(ctx: BotContext): Promise<void> {
-  if (!ctx.selectedDate || !ctx.selectedTime) return
+async function saveAppointmentFromBot(ctx: BotContext, orgId?: string): Promise<void> {
+  if (!ctx.selectedDate || !ctx.selectedTime) {
+    console.error('[Bot] Cannot save appointment: missing date or time', { date: ctx.selectedDate, time: ctx.selectedTime })
+    return
+  }
+  if (!orgId) { console.error('[Bot] Cannot save appointment: no orgId') ; return }
   const sb = createServiceClient()
-  const { data: clinic } = await sb.from('clinics').select('id, organization_id').limit(1).maybeSingle()
-  if (!clinic) return
+
+  // Find the clinic for this org
+  const { data: clinic } = await sb.from('clinics')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('is_active', true)
+    .limit(1).maybeSingle()
+  if (!clinic) { console.error('[Bot] No clinic found for org', orgId) ; return }
 
   const cleanPhone = ctx.phone.replace(/@\w+$/, '')
   let patientId: string
 
-  const { data: existing } = await sb.from('patients').select('id').eq('phone', cleanPhone).maybeSingle()
+  const { data: existing } = await sb.from('patients')
+    .select('id')
+    .eq('phone', cleanPhone)
+    .eq('organization_id', orgId)
+    .maybeSingle()
   if (existing) {
     patientId = existing.id
   } else {
     const parts = (ctx.patientName ?? 'Paciente').trim().split(/\s+/)
     const { data: created } = await sb.from('patients').insert({
-      organization_id: (clinic as Record<string, string>).organization_id,
+      organization_id: orgId,
       first_name: parts[0] ?? 'Paciente',
       last_name: parts.slice(1).join(' ') || 'WhatsApp',
       phone: cleanPhone,
       dni: ctx.pendingDni ?? null,
     }).select('id').single()
-    if (!created) return
+    if (!created) { console.error('[Bot] Failed to create patient') ; return }
     patientId = created.id
   }
 
-  const clinicOrgId = (clinic as Record<string, string>).organization_id
+  // Find professional in this org
   let professionalId: string | null = null
   if (ctx.selectedProfessional && ctx.selectedProfessional !== 'Sin preferencia') {
-    const stripped = ctx.selectedProfessional.replace(/^Dra?\.\s*/i, '')
-    const { data: prof } = await sb.from('professionals').select('id').ilike('full_name', `%${stripped}%`).eq('organization_id', clinicOrgId).limit(1).maybeSingle()
+    const stripped = ctx.selectedProfessional.replace(/\s*\(.*\)\s*$/, '').replace(/^Dra?\.\s*/i, '')
+    const { data: prof } = await sb.from('professionals')
+      .select('id')
+      .ilike('full_name', `%${stripped}%`)
+      .eq('is_active', true)
+      .limit(1).maybeSingle()
     professionalId = prof?.id ?? null
   }
   if (!professionalId) {
-    const { data: anyProf } = await sb.from('professionals').select('id').eq('is_active', true).eq('organization_id', clinicOrgId).limit(1).maybeSingle()
+    const { data: anyProf } = await sb.from('professionals')
+      .select('id')
+      .eq('is_active', true)
+      .order('full_name', { ascending: true })
+      .limit(1).maybeSingle()
     professionalId = anyProf?.id ?? null
   }
-  if (!professionalId) return
+  if (!professionalId) { console.error('[Bot] No professional found for org', orgId) ; return }
 
-  // Get slot duration from availability templates
   let slotDuration = 30
   if (ctx.selectedDate) {
     const [dd, mm, yy] = ctx.selectedDate.split('/').map(Number)
     const dow = new Date(yy, mm - 1, dd, 12).getDay()
-    const templates = await getAvailabilityForProfessional(professionalId)
+    const { templates } = await getScheduleForProfessional(professionalId)
     const dayTemplate = templates.find(t => t.day_of_week === dow)
     if (dayTemplate) slotDuration = dayTemplate.slot_duration || 30
   }
 
   const { starts_at, ends_at } = parseDateToISO(ctx.selectedDate, ctx.selectedTime, slotDuration)
-  await sb.from('appointments').insert({
-    clinic_id: (clinic as Record<string, string>).id,
+  console.log('[Bot] Saving appointment:', {
+    clinic: clinic.id,
+    patient: patientId,
+    professional: professionalId,
+    starts_at,
+    ends_at,
+    treatment: ctx.selectedSpecialty,
+    orgId
+  })
+  const { error: insertError } = await sb.from('appointments').insert({
+    clinic_id: clinic.id,
     patient_id: patientId,
     professional_id: professionalId,
     starts_at, ends_at,
@@ -332,6 +513,11 @@ async function saveAppointmentFromBot(ctx: BotContext): Promise<void> {
     source: 'whatsapp',
     notes: null, cancellation_reason: null, reminder_sent: false, nps_sent: false, google_event_id: null,
   })
+  if (insertError) {
+    console.error('[Bot] Failed to insert appointment:', insertError)
+  } else {
+    console.log('[Bot] Appointment saved successfully')
+  }
 }
 
 async function cancelAppointmentFromBot(ctx: BotContext): Promise<void> {
@@ -340,20 +526,54 @@ async function cancelAppointmentFromBot(ctx: BotContext): Promise<void> {
   await sb.from('appointments').update({ status: 'cancelled', cancellation_reason: 'Cancelado por paciente via WhatsApp' }).eq('id', ctx.selectedAppointmentId)
 }
 
-async function registerNewPatient(ctx: BotContext, phone: string): Promise<string | null> {
+async function registerNewPatient(ctx: BotContext, phone: string, orgId?: string): Promise<string | null> {
+  if (!orgId) { console.error('[Bot] Cannot register patient: no orgId') ; return null }
   const sb = createServiceClient()
-  const { data: clinic } = await sb.from('clinics').select('organization_id').limit(1).maybeSingle()
-  if (!clinic) return null
   const parts = (ctx.patientName ?? 'Paciente').trim().split(/\s+/)
   const cleanPhone = phone.replace(/@\w+$/, '')
   const { data: patient } = await sb.from('patients').upsert({
-    organization_id: (clinic as Record<string, string>).organization_id,
+    organization_id: orgId,
     first_name: parts[0] ?? 'Paciente',
     last_name: parts.slice(1).join(' ') || 'WhatsApp',
     phone: cleanPhone,
     dni: ctx.pendingDni ?? null,
   }, { onConflict: 'phone' }).select('id').single()
   return patient ? (patient as Record<string, string>).id : null
+}
+
+// ── Fallback responses (used only when AI is unavailable) ──────
+
+const AI_MARKERS = ['__AI_GENERATE__', '__FETCH_DATES__', '__FETCH_SLOTS__']
+
+const FALLBACKS: Record<string, (ctx: BotContext) => string> = {
+  identify_patient: () => '¡Hola! 👋 Soy Ana, la secretaria. ¿Me decís tu nombre y apellido? 😊',
+  ask_dni: () => '¿Me pasás tu DNI? Solo el número, sin puntos. Si preferís no darlo, decime y seguimos.',
+  main_menu: (ctx) => {
+    const name = ctx.patientName ?? ''
+    return `¡Hola ${name}! 😊 ¿En qué puedo ayudarte hoy?`
+  },
+  booking_specialty: (ctx) => {
+    const specs = ctx.specialties?.join(', ') ?? ''
+    return `¿Para qué especialidad necesitás el turno? 😊\n\nTengo: ${specs}`
+  },
+  booking_professional: (ctx) => {
+    const profs = ctx.professionals?.join(', ') ?? ''
+    if (!profs) return `¿Con qué profesional querés atenderte?`
+    return `Para esa especialidad tengo a: ${profs}\n\n¿Tenés preferencia por alguien? 😊`
+  },
+  booking_confirm: (ctx) =>
+    `¿Confirmás este turno?\n\n${ctx.selectedSpecialty} con ${ctx.selectedProfessional}\n${ctx.selectedDate} a las ${ctx.selectedTime}\n\nRespondé sí o no.`,
+  booking_done: (ctx) =>
+    `✅ ¡Listo! Te reservé el turno de ${ctx.selectedSpecialty} con ${ctx.selectedProfessional} para el ${ctx.selectedDate} a las ${ctx.selectedTime}.\n\nTe aviso un día antes. ¡Nos vemos! 😊`,
+  human_handoff: () =>
+    'Dale, ya te conecto con un agente. Un momento...',
+  closed: () =>
+    '¡Gracias por escribirnos! 😊 Si necesitás algo más, ya sabés.',
+}
+
+function getFallbackResponse(ctx: BotContext): string | null {
+  const fn = FALLBACKS[ctx.state]
+  return fn ? fn(ctx) : null
 }
 
 // ── Main webhook handler ──────────────────────────────────────
@@ -369,7 +589,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  if (payload.event !== 'messages.upsert') return NextResponse.json({ ok: true })
+  console.log('[Webhook] Event:', payload.event, '| Data keys:', Object.keys(payload.data ?? {}))
+
+  const evt = (payload.event as string).toLowerCase()
+  if (evt !== 'messages.upsert') {
+    return NextResponse.json({ ok: true, skipped: payload.event })
+  }
 
   const data = payload.data as EvolutionMessageData
   if (data.key?.fromMe) return NextResponse.json({ ok: true })
@@ -379,32 +604,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // Use remoteJid for replying (Evolution handles @lid routing internally)
-  // Use extractPhone(jid) only for DB lookups (clean number without suffix)
   const phone = extractPhone(jid)
   const text  = extractText(data as unknown as { message?: Record<string, unknown> })
   const name  = data.pushName
 
   if (!phone || !text) return NextResponse.json({ ok: true })
 
-  // ── Cargar contexto desde Supabase ─────────────────────────
+  // ── Load context ────────────────────────────────────────────
   let ctx = (await loadContext(phone)) ?? createInitialContext(phone)
 
-  // ── Fetch clinic info fresh on every message ──
+  // ── Stale context recovery ──────────────────────────────────
+  // If the last message was > 30 min ago, reset any booking/flow
+  // state so the bot starts fresh (handles server restarts, long pauses)
+  if (ctx.lastMessageAt) {
+    const elapsed = Date.now() - new Date(ctx.lastMessageAt).getTime()
+    const STALE_TIMEOUT = 30 * 60 * 1000 // 30 minutes
+    if (elapsed > STALE_TIMEOUT && ctx.state !== 'idle' && ctx.state !== 'closed') {
+      console.log('[Bot] Stale context (' + Math.round(elapsed/60000) + 'm), resetting state:', ctx.state, '→ idle')
+      ctx.state = 'idle'
+      ctx.selectedSpecialty = null
+      ctx.selectedProfessional = null
+      ctx.selectedDate = null
+      ctx.selectedTime = null
+      ctx.selectedAppointmentId = null
+      ctx.availableDatesList = undefined
+      ctx.availableSlotsList = undefined
+    }
+  }
+
+  // ── Fetch clinic by WhatsApp instance ─────────────────────────
+  // Each Evolution instance is a bot for ONE specific clinic.
+  // If the evolution_instance column doesn't exist yet (migration pending),
+  // falls back to the first active clinic.
   let orgId: string | undefined
   try {
     const sb = createServiceClient()
-    const { data: clinic } = await sb.from('clinics').select('name, organization_id').eq('is_active', true).limit(1).maybeSingle()
-    if (clinic?.name) ctx = { ...ctx, clinicName: clinic.name }
-    if (clinic?.organization_id) orgId = clinic.organization_id
+    const instanceName = payload.instance
+    // Try to find the clinic linked to this Evolution instance
+    let clinicData: Record<string, unknown> | null = null
+    try {
+      const { data } = await sb.from('clinics')
+        .select('id, name, organization_id')
+        .eq('evolution_instance', instanceName)
+        .maybeSingle()
+      clinicData = data
+      if (clinicData) console.log('[Bot] Found clinic by evolution_instance:', clinicData.name)
+    } catch { /* column may not exist yet */ }
+    // Fallback: any active clinic (temporary until migration is applied)
+    if (!clinicData) {
+      const { data } = await sb.from('clinics')
+        .select('id, name, organization_id')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle()
+      clinicData = data
+      if (clinicData) console.log('[Bot] Fallback to clinic:', clinicData.name)
+      else console.log('[Bot] No active clinic found!')
+    }
+    if (clinicData?.name) ctx = { ...ctx, clinicName: clinicData.name as string }
+    if (clinicData?.organization_id) orgId = clinicData.organization_id as string
+    console.log('[Bot] Resolved orgId:', orgId)
   } catch { /* ignore */ }
 
-  // ── Pre-inject DB data ─────────────────────────────────────
-
+  // ── Pre-load real data ──────────────────────────────────────
   if (['idle', 'closed', 'greeting'].includes(ctx.state)) {
     const sb = createServiceClient()
     const cleanPhone = phone.replace(/@\w+$/, '')
-    const { data: patient } = await sb.from('patients').select('id, first_name, last_name').eq('phone', cleanPhone).maybeSingle()
+    let patientQuery = sb.from('patients').select('id, first_name, last_name').eq('phone', cleanPhone)
+    if (orgId) patientQuery = patientQuery.eq('organization_id', orgId)
+    const { data: patient } = await patientQuery.maybeSingle()
     if (patient) {
       const patientName = `${(patient as Record<string, string>).first_name} ${(patient as Record<string, string>).last_name}`
       const appts = await fetchUpcomingAppointments((patient as Record<string, string>).id)
@@ -416,71 +684,191 @@ export async function POST(req: NextRequest) {
     ctx = { ...ctx, upcomingAppointments: await fetchUpcomingAppointments(ctx.patientId) }
   }
 
-  if (['idle', 'closed', 'main_menu', 'booking_specialty'].includes(ctx.state) && !ctx.specialties) {
-    const specs = await fetchSpecialties(orgId)
-    if (specs.length > 0) ctx = { ...ctx, specialties: specs }
-  }
+  // Always refresh specialties & professionals — never cache stale org data
+  const specs = await fetchSpecialties(orgId)
+  if (specs.length > 0) ctx = { ...ctx, specialties: specs }
+  else ctx = { ...ctx, specialties: undefined }
 
-  if (ctx.state === 'booking_specialty' && !ctx.professionals) {
-    const profs = await fetchProfessionals(orgId)
-    if (profs.length > 0) ctx = { ...ctx, professionals: profs }
-  }
+  const profs = await fetchProfessionals(orgId)
+  if (profs.length > 0) ctx = { ...ctx, professionals: profs }
+  else ctx = { ...ctx, professionals: undefined }
 
+  // ── Process through state machine ───────────────────────────
   const { newContext, responses, shouldEndSession } = processMessage(text, ctx, name)
 
-  // ── Post-process markers ───────────────────────────────────
+  // ── Handle data-fetch markers ───────────────────────────────
+  let finalResponses = [...responses]
+  let aiContext = newContext
 
-  if (newContext.state === 'booking_date' && responses[0] === '__FETCH_DATES__') {
-    if (newContext.selectedProfessional === 'Sin preferencia') {
+  // __FETCH_DATES__ → fetch available dates, then AI generates response
+  if (responses.includes('__FETCH_DATES__')) {
+    if (newContext.selectedProfessional === 'Sin preferencia' && !newContext.professionals?.length) {
       const profs = await fetchProfessionals(orgId)
       if (profs.length > 0) newContext.selectedProfessional = profs[Math.floor(Math.random() * profs.length)]
     }
     const dates = await fetchAvailableDates(newContext.selectedProfessional, orgId)
     if (dates.length === 0) {
-      newContext.state = 'main_menu'
-      responses[0] = `Lo siento, no hay turnos disponibles en los próximos días 😔\n¿Puedo ayudarte con algo más?`
+      // No availability — DON'T reset to main_menu. Stay in current state
+      // so the AI can respond naturally: "Por ahora no tengo horarios 😕"
+      console.log('[Bot] No dates for professional:', newContext.selectedProfessional)
+      newContext.availableDatesList = []
+      aiContext = newContext
+      finalResponses = ['__AI_GENERATE__']
     } else {
+      newContext.state = 'booking_date'
       newContext.availableDatesList = dates
-      responses[0] = `📅 *¿Para qué fecha querés el turno?*\n\n${dates.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')}\n\nRespondé con el número de la fecha.`
+      aiContext = newContext
+      finalResponses = ['__AI_GENERATE__']
     }
   }
 
-  if (newContext.state === 'booking_slots' && responses[0] === '__FETCH_SLOTS__') {
+  // __FETCH_SLOTS__ → fetch slots, then AI generates response
+  if (responses.includes('__FETCH_SLOTS__')) {
     const slots = await fetchAvailableSlots(newContext.selectedDate!, newContext.selectedProfessional, orgId)
     if (slots.length === 0) {
+      // No slots → go back to date selection
       const dates = await fetchAvailableDates(newContext.selectedProfessional, orgId)
-      newContext.state = 'booking_date'
-      newContext.availableDatesList = dates.length > 0 ? dates : undefined
-      responses[0] = dates.length > 0
-        ? `No hay turnos disponibles para ese día 😔\n\n*¿Querés elegir otra fecha?*\n\n${dates.map((d, i) => `${i + 1}️⃣ ${d.label}`).join('\n')}`
-        : `No hay turnos disponibles en los próximos días 😔`
+      if (dates.length === 0) {
+        newContext.state = 'main_menu'
+        aiContext = newContext
+        finalResponses = ['__AI_GENERATE__']
+      } else {
+        newContext.state = 'booking_date'
+        newContext.availableDatesList = dates
+        aiContext = newContext
+        finalResponses = ['__AI_GENERATE__']
+      }
     } else {
       newContext.availableSlotsList = slots
-      responses[0] = `🕐 *Turnos disponibles:*\n\n${slots.map((s, i) => `${i + 1}️⃣ ${s.label}`).join('\n')}\n\nRespondé con el número del turno.`
+      aiContext = newContext
+      finalResponses = ['__AI_GENERATE__']
     }
   }
 
-  // ── Registrar nuevo paciente cuando completa el onboarding ──
-  const justRegistered = ctx.state === 'ask_dni' && newContext.state === 'main_menu' && !newContext.isKnownPatient
-  if (justRegistered && newContext.patientName) {
-    try {
-      const patientId = await registerNewPatient(newContext, phone)
-      if (patientId) {
-        newContext.patientId = patientId
-        newContext.isKnownPatient = true
+  // ── AI-Generated Response (primary) ─────────────────────────
+  let aiText: string | null = null
+  if (finalResponses.includes('__AI_GENERATE__') || finalResponses.every(r => AI_MARKERS.includes(r))) {
+    // Fetch professional schedule and areas for accurate AI descriptions
+    let professionalSchedule: string | null = null
+    let professionalAreas: string | null = null
+    if (aiContext.selectedProfessional && aiContext.selectedProfessional !== 'Sin preferencia') {
+      try {
+        const pid = await getProfessionalId(aiContext.selectedProfessional, orgId)
+        if (pid) {
+          const svc = createServiceClient()
+          const [{ weeklyInfo }, { data: areasList }] = await Promise.all([
+            getScheduleForProfessional(pid),
+            svc.from('service_areas').select('name, duration_min').eq('professional_id', pid).eq('is_active', true).order('name'),
+          ])
+          professionalSchedule = weeklyInfo
+          const areas = areasList as Array<{ name: string; duration_min: number }> | null
+          if (areas && areas.length > 0) {
+            professionalAreas = areas.map((a: { name: string; duration_min: number }) => `${a.name} (${a.duration_min} min)`).join(', ')
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Save the FULL professionals list (before any filtering) for the
+    // specialty→professionals mapping so the AI can answer questions like
+    // "¿quién atiende en Cirugía?" even when browsing a different specialty.
+    const allProfessionals = aiContext.professionals ?? []
+
+    // Filter professionals by selected specialty so the AI only offers relevant ones
+    let professionalsForAi = [...allProfessionals]
+    if (aiContext.selectedSpecialty && aiContext.state === 'booking_professional') {
+      const filtered = await fetchProfessionalsForSpecialty(aiContext.selectedSpecialty, orgId)
+      if (filtered.length > 0) {
+        professionalsForAi = filtered
       }
-    } catch (err) {
-      console.error('[Bot] Register patient error:', err)
+      // If only ONE professional, auto-select and move to date selection
+      if (filtered.length === 1) {
+        aiContext.selectedProfessional = filtered[0]
+        // Fetch available dates for this professional
+        const dates = await fetchAvailableDates(filtered[0], orgId)
+        if (dates.length > 0) {
+          aiContext.state = 'booking_date'
+          aiContext.availableDatesList = dates
+        } else {
+          // No dates for this professional — DON'T advance state
+          // Stay in booking_professional so the AI can handle it naturally
+          console.log('[Bot] No dates for single professional', filtered[0])
+        }
+      }
+    }
+
+    // Build FULL specialty→professionals mapping from ALL professionals
+    // (not just the filtered ones) so the AI can answer any specialty question
+    const professionalsBySpecialty: Record<string, string[]> = {}
+    for (const prof of allProfessionals) {
+      const match = prof.match(/^(.+?)\s*\((.+)\)$/)
+      if (match) {
+        const profName = match[1].trim()
+        const specName = match[2].trim()
+        if (!professionalsBySpecialty[specName]) professionalsBySpecialty[specName] = []
+        if (!professionalsBySpecialty[specName].includes(profName)) {
+          professionalsBySpecialty[specName].push(profName)
+        }
+      }
+    }
+
+    // Pre-fetch ALL availability for ALL professionals so the AI
+    // always has real data to answer naturally.
+    const allAvailability = await fetchAllAvailability(orgId)
+
+    // Build AI context — ALWAYS include all data. The AI is smart enough
+    // to use only what's relevant. No state-based hiding.
+    const aiReq: AiContext = {
+      patientName: aiContext.patientName,
+      clinicName: aiContext.clinicName,
+      isKnownPatient: aiContext.isKnownPatient,
+      state: aiContext.state,
+      selectedSpecialty: aiContext.selectedSpecialty,
+      selectedProfessional: aiContext.selectedProfessional,
+      selectedDate: aiContext.selectedDate,
+      selectedTime: aiContext.selectedTime,
+      specialties: aiContext.specialties ?? [],
+      professionals: professionalsForAi,
+      professionalsBySpecialty,
+      availableSlots: aiContext.state === 'booking_slots' || aiContext.state === 'booking_confirm' ? aiContext.availableSlotsList : null,
+      availableDates: aiContext.state === 'booking_date' || aiContext.state === 'booking_slots' || aiContext.state === 'booking_confirm' ? aiContext.availableDatesList : null,
+      upcomingAppointments: aiContext.upcomingAppointments,
+      professionalSchedule,
+      professionalAreas,
+      allAvailability,
+      history: ctx.history ?? [],
+    }
+
+    console.log('[Bot] AI context — allAvailability:', JSON.stringify(allAvailability))
+    console.log('[Bot] AI context — professionals:', JSON.stringify(professionalsForAi))
+    console.log('[Bot] AI context — specialties:', JSON.stringify(aiContext.specialties))
+    console.log('[Bot] Calling AI with orgId:', orgId, 'state:', aiContext.state)
+    aiText = await generateAiResponse(text, aiReq, orgId)
+
+    // Fall back to rule-based if AI failed
+    if (!aiText) {
+      console.log('[Bot] AI returned null for state:', aiContext.state, 'orgId:', orgId)
+      aiText = getFallbackResponse(aiContext)
+    } else {
+      console.log('[Bot] AI response OK for state:', aiContext.state)
     }
   }
 
-  // ── Transiciones de turno ──────────────────────────────────
+  // Replace marker responses with AI-generated text
+  if (aiText) {
+    finalResponses = [aiText]
+  } else {
+    // No AI and no fallback — filter out markers
+    finalResponses = finalResponses.filter(r => !AI_MARKERS.includes(r))
+  }
+
+  // ── Booking persistence ─────────────────────────────────────
   const justBooked      = newContext.state === 'booking_done' && ctx.state !== 'booking_done'
   const justCancelled   = ctx.state === 'cancel_confirm'  && newContext.state === 'main_menu' && !!ctx.selectedAppointmentId
   const justRescheduled = ctx.state === 'reschedule'      && newContext.state === 'booking_specialty' && !!ctx.selectedAppointmentId
 
   if (justBooked) {
-    try { await saveAppointmentFromBot(newContext) } catch (err) { console.error('[Bot] Save appt error:', err) }
+    try { await saveAppointmentFromBot(newContext, orgId) } catch (err) { console.error('[Bot] Save appt error:', err) }
   }
   if (justCancelled) {
     try { await cancelAppointmentFromBot(ctx) } catch (err) { console.error('[Bot] Cancel appt error:', err) }
@@ -494,35 +882,52 @@ export async function POST(req: NextRequest) {
     } catch (err) { console.error('[Bot] Reschedule error:', err) }
   }
 
-  // ── Guardar contexto en Supabase ───────────────────────────
-  const finalCtx = shouldEndSession ? { ...newContext, state: 'closed' as const } : newContext
-  try {
-    await saveContext(phone, name, finalCtx)
-  } catch (err) {
-    console.error('[Webhook] Save context error:', err)
+  // Register new patient
+  const justRegistered = ctx.state === 'ask_dni' && newContext.state === 'main_menu' && !newContext.isKnownPatient
+  if (justRegistered && newContext.patientName) {
+    try {
+      const patientId = await registerNewPatient(newContext, phone, orgId)
+      if (patientId) {
+        newContext.patientId = patientId
+        newContext.isKnownPatient = true
+      }
+    } catch (err) { console.error('[Bot] Register patient error:', err) }
   }
 
-  // ── Guardar mensajes ───────────────────────────────────────
+  // ── Update conversation history ─────────────────────────────
+  if (finalResponses.length > 0 && finalResponses[0]) {
+    const history = newContext.history ?? []
+    history.push({ role: 'user' as const, content: text })
+    history.push({ role: 'assistant' as const, content: finalResponses[0] })
+    newContext.history = history.slice(-20)
+  }
+
+  // ── Persist context ─────────────────────────────────────────
+  const finalCtx = shouldEndSession ? { ...newContext, state: 'closed' as const } : newContext
+  try { await saveContext(phone, name, finalCtx) } catch (err) { console.error('[Webhook] Save context error:', err) }
+
+  // ── Save messages ───────────────────────────────────────────
   try {
     const convId = await getConvId(phone)
     if (convId) {
       await saveMessage(convId, 'inbound', text)
-      for (const r of responses) await saveMessage(convId, 'outbound', r)
+      for (const r of finalResponses) { if (r) await saveMessage(convId, 'outbound', r) }
     }
-  } catch (err) {
-    console.error('[Webhook] Save messages error:', err)
-  }
+  } catch (err) { console.error('[Webhook] Save messages error:', err) }
 
-  // ── Enviar respuestas (usar jid completo para @lid routing) ──
-  if (responses.length > 0) {
+  // ── Send responses ──────────────────────────────────────────
+  const toSend = finalResponses.filter(r => r && !AI_MARKERS.includes(r))
+  if (toSend.length > 0) {
     try {
-      await sendMultiple(jid, responses)
+      console.log('[Bot] Sending to', jid, '→', JSON.stringify(toSend.map(r => r.slice(0, 50))))
+      await sendMultiple(jid, toSend)
+      console.log('[Bot] Sent OK')
     } catch (err) {
       console.error('[Bot] Send error:', String(err))
     }
   }
 
-  return NextResponse.json({ ok: true, state: finalCtx.state, responses: responses.length })
+  return NextResponse.json({ ok: true, state: finalCtx.state, responses: toSend.length })
 }
 
 export async function GET(req: NextRequest) {

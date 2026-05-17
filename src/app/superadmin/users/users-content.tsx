@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, RefreshCw, Eye, EyeOff, AlertCircle, Pencil, Trash2, KeyRound, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { UserRole } from '@/lib/types'
@@ -104,9 +105,11 @@ function RoleSelect({ value, onChange, exclude = [] }: { value: string; onChange
 
 // ── Main ──────────────────────────────────────────────────────
 export function UsersContent() {
+  const searchParams = useSearchParams()
+  const initialOrg = searchParams.get('orgId') ?? 'all'
   const [users, setUsers]       = useState<UserRow[]>([])
   const [orgs, setOrgs]         = useState<OrgOption[]>([])
-  const [orgFilter, setOrgFilter] = useState<string>('all')
+  const [orgFilter, setOrgFilter] = useState<string>(initialOrg)
   const [loading, setLoading]   = useState(true)
   const [modal, setModal]       = useState<'create' | 'edit' | 'reset-pw' | 'delete' | null>(null)
   const [selected, setSelected] = useState<UserRow | null>(null)
@@ -309,9 +312,11 @@ export function UsersContent() {
                       <button onClick={() => openResetPw(u)} title="Cambiar contraseña" className="p-1.5 rounded-[8px] text-[var(--subtle)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] transition-colors">
                         <KeyRound size={13} />
                       </button>
-                      <button onClick={() => openDelete(u)} title="Eliminar" className="p-1.5 rounded-[8px] text-[var(--subtle)] hover:bg-red-50 hover:text-red-500 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
+                      {u.role !== 'superadmin' && (
+                        <button onClick={() => openDelete(u)} title="Eliminar" className="p-1.5 rounded-[8px] text-[var(--subtle)] hover:bg-red-50 hover:text-red-500 transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

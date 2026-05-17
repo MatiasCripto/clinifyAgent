@@ -22,10 +22,9 @@ async function evolutionFetch(path: string, body: unknown) {
 }
 
 export async function sendText(phone: string, text: string, delay = 1200) {
-  // Strip @s.whatsapp.net / @c.us but keep @lid — Evolution resolves @lid internally
-  const number = phone.replace(/@s\.whatsapp\.net$/, '').replace(/@c\.us$/, '')
+  // Send the JID exactly as received — Evolution handles format internally
   const payload: SendTextPayload = {
-    number,
+    number: phone,
     textMessage: { text },
     options: { delay, presence: 'composing' },
   }

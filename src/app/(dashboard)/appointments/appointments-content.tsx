@@ -58,7 +58,11 @@ const EMPTY_FORM: ApptForm = {
 }
 
 export function AppointmentsContent() {
-  const { currentClinic } = useAuth()
+  const { currentClinic, authUser } = useAuth()
+  const userProfileId = authUser?.profile?.id
+  const userRole = authUser?.role
+  const [staffProfessionalId, setStaffProfessionalId] = useState<string | null>(null)
+
   const [filter,       setFilter]       = useState<FilterStatus>('all')
   const [search,       setSearch]       = useState('')
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -78,13 +82,30 @@ export function AppointmentsContent() {
       sb.from('appointments').select('*, patient:patients(*), professional:professionals(*)').order('starts_at', { ascending: false }),
       sb.from('patients').select('*').eq('is_active', true).order('last_name'),
       sb.from('professionals').select('*, specialty:specialties(*)').eq('is_active', true).order('full_name'),
-    ]).then(([appts, pats, profs]) => {
+    ]).then(async ([appts, pats, profs]) => {
+      const profsData = (profs.data as Professional[]) ?? []
+
+      // For staff users, find their linked professional
+      if (userRole === 'staff' && userProfileId) {
+        const linked = profsData.find((p) => (p as Professional).profile_id === userProfileId)
+        if (linked) {
+          setStaffProfessionalId(linked.id)
+          // Filter appointments to only show staff's own
+          const apptsData = (appts.data as Appointment[]) ?? []
+          setAppointments(apptsData.filter(a => a.professional_id === linked.id))
+          setProfessionals([linked]) // Only show themselves in dropdown
+          setPatients((pats.data as Patient[]) ?? [])
+          setLoading(false)
+          return
+        }
+      }
+
       setAppointments((appts.data as Appointment[]) ?? [])
       setPatients((pats.data as Patient[]) ?? [])
-      setProfessionals((profs.data as Professional[]) ?? [])
+      setProfessionals(profsData)
       setLoading(false)
     })
-  }, [])
+  }, [userRole, userProfileId])
 
   const counts = useMemo(() => ({
     all:       appointments.length,
@@ -115,7 +136,8 @@ export function AppointmentsContent() {
     now.setHours(9, 0, 0, 0)
     const pad = (n: number) => String(n).padStart(2, '0')
     const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
-    setForm({ ...EMPTY_FORM, startsAt: local })
+    // Auto-select professional for staff
+    setForm({ ...EMPTY_FORM, startsAt: local, professionalId: staffProfessionalId ?? '' })
     setModalMode('create')
     setConfirmDelete(false)
     setModalOpen(true)

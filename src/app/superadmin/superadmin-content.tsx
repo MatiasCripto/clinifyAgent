@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, RefreshCw, Building2, Users, CheckCircle, XCircle, Eye, EyeOff, AlertCircle, Pencil, Check, X } from 'lucide-react'
+import { Plus, RefreshCw, Building2, Users, CheckCircle, XCircle, Eye, EyeOff, AlertCircle, Pencil, Check, X, Trash2, UserCog } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import type { Organization, Clinic, Profile, OrgPlan } from '@/lib/types'
 
@@ -144,6 +144,12 @@ export function SuperadminContent() {
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [expandedOrg, setExpandedOrg] = useState<string | null>(null)
+  const [newClinicName, setNewClinicName] = useState('')
+  const [addingClinicFor, setAddingClinicFor] = useState<string | null>(null)
+  const [editingClinic, setEditingClinic] = useState<{ orgId: string; clinicId: string; name: string } | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -197,6 +203,63 @@ export function SuperadminContent() {
     setOrgs(prev => prev.map(o => o.id === orgId ? { ...o, name } : o))
   }
 
+  async function handleDeleteOrg(orgId: string, orgName: string) {
+    setDeletingId(orgId)
+    const res = await fetch('/api/superadmin/organizations', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orgId }),
+    })
+    if (res.ok) {
+      setOrgs(prev => prev.filter(o => o.id !== orgId))
+      setShowDeleteConfirm(null)
+    } else {
+      const json = await res.json()
+      setError(json.error ?? 'Error al eliminar')
+    }
+    setDeletingId(null)
+  }
+
+  async function handleRenameClinic(orgId: string, clinicId: string, newName: string) {
+    await fetch('/api/superadmin/organizations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinicId, clinicName: newName }),
+    })
+    setOrgs(prev => prev.map(o => {
+      if (o.id !== orgId) return o
+      return { ...o, clinics: o.clinics?.map(c => c.id === clinicId ? { ...c, name: newName } : c) ?? [] }
+    }))
+    setEditingClinic(null)
+  }
+
+  async function handleAddClinic(orgId: string) {
+    if (!newClinicName.trim()) return
+    const res = await fetch('/api/superadmin/organizations', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ organization_id: orgId, name: newClinicName.trim() }),
+    })
+    if (res.ok) {
+      const clinic = await res.json()
+      setOrgs(prev => prev.map(o => o.id === orgId ? { ...o, clinics: [...(o.clinics ?? []), clinic] } : o))
+      setNewClinicName('')
+      setAddingClinicFor(null)
+    }
+  }
+
+  async function handleDeleteClinic(orgId: string, clinicId: string) {
+    await fetch('/api/superadmin/organizations', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinicId }),
+    })
+    setOrgs(prev => prev.map(o => {
+      if (o.id !== orgId) return o
+      return { ...o, clinics: o.clinics?.filter(c => c.id !== clinicId) ?? [] }
+    }))
+  }
+
   function setField(field: keyof CreateForm, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
   }
@@ -247,18 +310,19 @@ export function SuperadminContent() {
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">WhatsApp</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Creado</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Estado</th>
+                <th className="text-right px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-[var(--subtle)]">
+                  <td colSpan={8} className="px-4 py-10 text-center text-[var(--subtle)]">
                     <div className="flex justify-center"><div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" /></div>
                   </td>
                 </tr>
               ) : orgs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-[12px] text-[var(--subtle)]">
+                  <td colSpan={8} className="px-4 py-10 text-center text-[12px] text-[var(--subtle)]">
                     No hay clientes todavía. Creá el primero.
                   </td>
                 </tr>
@@ -281,8 +345,62 @@ export function SuperadminContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {clinic?.name ? (
-                        <span className="text-[12.5px] text-[var(--foreground)]">{clinic.name}</span>
+                      {org.clinics && org.clinics.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {org.clinics.map(c => (
+                            <div key={c.id} className="flex items-center gap-1 group">
+                              {editingClinic?.clinicId === c.id ? (
+                                <>
+                                  <input
+                                    defaultValue={editingClinic.name}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') handleRenameClinic(org.id, c.id, (e.target as HTMLInputElement).value)
+                                      if (e.key === 'Escape') setEditingClinic(null)
+                                    }}
+                                    className="w-[110px] px-1.5 py-0.5 rounded-[6px] bg-[var(--surface-2)] border border-[var(--brand)] text-[12px] outline-none"
+                                    autoFocus
+                                  />
+                                  <button onClick={() => setEditingClinic(null)} className="p-0.5 text-[var(--subtle)]"><X size={11} /></button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-[12px] text-[var(--foreground)]">{c.name}</span>
+                                  <button
+                                    onClick={() => setEditingClinic({ orgId: org.id, clinicId: c.id, name: c.name })}
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--subtle)] hover:text-[var(--muted)]"
+                                    title="Editar clínica"
+                                  ><Pencil size={10} /></button>
+                                  {org.clinics!.length > 1 && (
+                                    <button
+                                      onClick={() => handleDeleteClinic(org.id, c.id)}
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 text-red-400 hover:text-red-600"
+                                      title="Eliminar clínica"
+                                    ><X size={10} /></button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                          {addingClinicFor === org.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={newClinicName}
+                                onChange={e => setNewClinicName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleAddClinic(org.id); if (e.key === 'Escape') { setAddingClinicFor(null); setNewClinicName('') } }}
+                                placeholder="Nombre nueva clínica"
+                                className="w-[130px] px-1.5 py-0.5 rounded-[6px] bg-[var(--surface-2)] border border-[var(--brand)] text-[12px] outline-none"
+                                autoFocus
+                              />
+                              <button onClick={() => handleAddClinic(org.id)} className="p-0.5 text-green-600"><Check size={11} /></button>
+                              <button onClick={() => { setAddingClinicFor(null); setNewClinicName('') }} className="p-0.5 text-[var(--subtle)]"><X size={11} /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setAddingClinicFor(org.id)}
+                              className="flex items-center gap-0.5 text-[10px] text-[var(--brand)] hover:underline mt-0.5"
+                            ><Plus size={10} /> Agregar clínica</button>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[12px] text-[var(--subtle)]">—</span>
                       )}
@@ -329,6 +447,24 @@ export function SuperadminContent() {
                         {togglingId === org.id ? '...' : org.is_active ? '● Activo' : '○ Inactivo'}
                       </button>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <a
+                          href={`/superadmin/users?orgId=${org.id}`}
+                          className="flex items-center gap-1 px-2 py-1 rounded-[8px] text-[11px] text-[var(--brand)] border border-[var(--brand)] hover:bg-[var(--brand-subtle)] transition-colors"
+                          title="Gestionar staff"
+                        >
+                          <UserCog size={11} /> Staff
+                        </a>
+                        <button
+                          onClick={() => setShowDeleteConfirm(org.id)}
+                          className="p-1.5 rounded-[8px] text-[var(--subtle)] hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Eliminar organización"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
@@ -336,6 +472,38 @@ export function SuperadminContent() {
           </table>
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-[var(--surface)] rounded-[16px] border border-[var(--border)] w-full max-w-[400px] shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <AlertCircle size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-[15px] font-semibold text-[var(--foreground)]">Eliminar organización</h2>
+                <p className="text-[12px] text-[var(--subtle)] mt-0.5">
+                  Esto eliminará permanentemente la organización, sus clínicas, profesionales, turnos y usuarios. Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="px-4 py-2 rounded-[10px] border border-[var(--border)] text-[13px] text-[var(--muted)] hover:bg-[var(--surface-2)]"
+              >Cancelar</button>
+              <button
+                onClick={() => handleDeleteOrg(showDeleteConfirm, orgs.find(o => o.id === showDeleteConfirm)?.name ?? '')}
+                disabled={deletingId === showDeleteConfirm}
+                className="px-4 py-2 rounded-[10px] bg-red-600 text-white text-[13px] font-semibold hover:bg-red-700 disabled:opacity-60"
+              >
+                {deletingId === showDeleteConfirm ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create modal */}
       {showModal && (

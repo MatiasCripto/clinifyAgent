@@ -42,6 +42,13 @@ export function Sidebar({ collapsed = false, onMobileClose }: SidebarProps) {
   const userName  = authUser?.profile?.full_name ?? 'Admin'
   const userEmail = authUser?.user?.email ?? 'admin@clinify.app'
   const avatarUrl = authUser?.profile?.avatar_url ?? null
+  const userRole  = authUser?.role
+
+  // Staff sees only: Inicio, Calendario, Turnos, Pacientes, WhatsApp Bot, Configuración
+  const staffHidden = new Set(['professionals', 'billing', 'analytics'])
+  const visibleItems = userRole === 'staff'
+    ? NAV_ITEMS.filter(item => !staffHidden.has(item.href.replace(/^\//, '')))
+    : NAV_ITEMS
 
   return (
     <aside
@@ -74,7 +81,7 @@ export function Sidebar({ collapsed = false, onMobileClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon
           const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (

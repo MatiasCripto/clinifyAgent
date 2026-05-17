@@ -21,7 +21,7 @@ export function WhatsAppQR({ instance = 'clinify' }: Props) {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
   }, [])
 
-  const fetchStatus = useCallback(async () => {
+  const fetchStatus = useCallback(async (isInitial = false) => {
     try {
       const res = await fetch(`/api/evolution/status?instance=${instance}`)
       const data = await res.json()
@@ -30,24 +30,26 @@ export function WhatsAppQR({ instance = 'clinify' }: Props) {
         setConnState('open')
         setQrBase64(null)
         stopPoll()
-      } else {
+      } else if (isInitial) {
+        // Solo en la carga inicial mostramos 'close'
         setConnState('close')
       }
+      // Durante el QR, no cambiar el estado — mantener el QR visible
     } catch {
-      setConnState('close')
+      if (isInitial) setConnState('close')
     }
   }, [instance, stopPoll])
 
   // Initial status check
   useEffect(() => {
-    fetchStatus()
+    fetchStatus(true)
   }, [fetchStatus])
 
-  // Poll when waiting for QR scan
+  // Poll when waiting for QR scan (cada 5 seg, no 3)
   useEffect(() => {
     if (connState === 'qr' || connState === 'connecting') {
       stopPoll()
-      pollRef.current = setInterval(fetchStatus, 3000)
+      pollRef.current = setInterval(() => fetchStatus(false), 5000)
     } else {
       stopPoll()
     }

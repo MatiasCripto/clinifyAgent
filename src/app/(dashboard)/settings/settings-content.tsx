@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Building2, Stethoscope, Plug, User, Shield,
+  Building2, Stethoscope, Plug, User, Shield, Calendar,
   Save, Check, AlertCircle, Eye, EyeOff, Copy, Camera,
-  FileKey, Upload, CheckCircle2,
+  FileKey, Upload, CheckCircle2, Brain,
 } from 'lucide-react'
 import { WhatsAppQR } from '@/components/settings/whatsapp-qr'
+import { AgendaTab } from '@/components/settings/agenda-tab'
 import { cn } from '@/lib/utils/cn'
 import { useAuth, useRole } from '@/lib/hooks/use-auth'
 import { usePlan } from '@/lib/plans/use-plan'
@@ -16,11 +17,12 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Types ────────────────────────────────────────────────────
-type Tab = 'organization' | 'clinic' | 'integrations' | 'afip' | 'account' | 'roles'
+type Tab = 'organization' | 'clinic' | 'integrations' | 'afip' | 'account' | 'roles' | 'agenda'
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
   { key: 'organization',  label: 'Organización',   icon: Building2 },
   { key: 'clinic',        label: 'Clínica',         icon: Stethoscope },
+  { key: 'agenda',        label: 'Agenda',          icon: Calendar },
   { key: 'integrations',  label: 'Integraciones',   icon: Plug },
   { key: 'afip',          label: 'ARCA / AFIP',     icon: FileKey },
   { key: 'account',       label: 'Mi cuenta',       icon: User },
@@ -245,6 +247,51 @@ function IntegrationsTab() {
   const [evolutionUrl, setEvolutionUrl] = useState(process.env.NEXT_PUBLIC_EVOLUTION_URL ?? 'http://localhost:8080')
   const [evolutionKey, setEvolutionKey] = useState('••••••••••••••••')
   const [n8nUrl, setN8nUrl] = useState('')
+
+  // AI config
+  const [aiProvider, setAiProvider] = useState('openai')
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [aiModel, setAiModel] = useState('gpt-4o')
+  const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiSaved, setAiSaved] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/settings/ai-config')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.provider) {
+          setAiProvider(data.provider)
+          setAiModel(data.model || 'gpt-4o')
+          setAiConfigured(true)
+        }
+      })
+  }, [])
+
+  async function saveAiConfig() {
+    if (!aiApiKey && !aiConfigured) return
+    setAiLoading(true); setAiError(null)
+    const body: Record<string, string> = { provider: aiProvider, model: aiModel }
+    if (aiApiKey) body.apiKey = aiApiKey // solo envía la key si el usuario puso una nueva
+    const res = await fetch('/api/settings/ai-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const d = await res.json()
+      setAiError(d.error ?? 'Error al guardar')
+      setAiLoading(false)
+      return
+    }
+    setAiConfigured(true)
+    setAiApiKey('')
+    setAiSaved(true)
+    setTimeout(() => setAiSaved(false), 2000)
+    setAiLoading(false)
+  }
+
   const [saved, setSaved] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -301,6 +348,68 @@ function IntegrationsTab() {
         <FormField label="URL base de n8n" hint="Ej: https://n8n.tu-dominio.com/webhook">
           <Input value={n8nUrl} onChange={e => setN8nUrl(e.target.value)} placeholder="https://n8n.tu-dominio.com/webhook" />
         </FormField>
+      </div>
+
+      <div className="border-t border-[var(--border)]" />
+
+      {/* AI — Bot Conversacional */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-[8px] bg-purple-100 flex items-center justify-center">
+            <Brain size={14} className="text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-[13px] font-semibold text-[var(--foreground)]">IA — Bot conversacional</h3>
+            <p className="text-[11px] text-[var(--subtle)]">API key para que el bot de WhatsApp responda con lenguaje natural</p>
+          </div>
+          <span className={cn('ml-auto badge text-[10px]', aiConfigured ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600')}>
+            {aiConfigured ? '● Configurado' : '○ Sin configurar'}
+          </span>
+        </div>
+
+        <FormField label="Proveedor de IA">
+          <Select value={aiProvider} onChange={e => setAiProvider(e.target.value)}>
+            <option value="openai">OpenAI (GPT-4o, GPT-4)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="groq">Groq (Llama, Mixtral)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="deepseek">DeepSeek</option>
+          </Select>
+        </FormField>
+
+        <FormField label="Modelo" hint="Ej: gpt-4o, claude-opus-4, gemini-2.0-flash">
+          <Input
+            value={aiModel}
+            onChange={e => setAiModel(e.target.value)}
+            placeholder="gpt-4o"
+          />
+        </FormField>
+
+        <FormField label="API Key" hint={aiConfigured ? 'La API key ya está guardada. Pegá una nueva para reemplazarla.' : 'Pegá la API key de tu proveedor de IA'}>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={aiApiKey}
+              onChange={e => setAiApiKey(e.target.value)}
+              placeholder={aiConfigured ? '•••••••••••••••• (dejá vacío para mantener la actual)' : 'sk-...'}
+              className="flex-1"
+            />
+            <button
+              type="button"
+              onClick={saveAiConfig}
+              disabled={aiLoading || (!aiApiKey && !aiConfigured)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-[10px] bg-[var(--brand)] text-white text-[12px] font-semibold disabled:opacity-60 hover:opacity-90"
+            >
+              {aiSaved ? <Check size={13} /> : aiLoading ? '...' : 'Guardar'}
+            </button>
+          </div>
+        </FormField>
+
+        {aiError && (
+          <div className="flex items-center gap-2 p-3 rounded-[10px] bg-red-50 border border-red-100 text-red-700 text-[12px]">
+            <AlertCircle size={13} /> {aiError}
+          </div>
+        )}
       </div>
 
       <div className="border-t border-[var(--border)]" />
@@ -837,14 +946,21 @@ function AfipTab() {
 
 // ── Main ─────────────────────────────────────────────────────
 export function SettingsContent() {
-  const [tab, setTab] = useState<Tab>('organization')
-  const { isAdmin } = useRole()
+  const { isAdmin, isStaff, role } = useRole()
   const { loading } = useAuth()
   const { hasAfip, upgradeLabel } = usePlan()
+
+  // Staff only sees Agenda and Mi cuenta
+  const visibleTabs = isAdmin
+    ? TABS
+    : TABS.filter(t => t.key === 'agenda' || t.key === 'account')
+
+  const [tab, setTab] = useState<Tab>(isAdmin ? 'organization' : 'agenda')
 
   const TAB_CONTENT: Record<Tab, React.ReactNode> = {
     organization: <OrganizationTab />,
     clinic:       <ClinicTab />,
+    agenda:       <AgendaTab />,
     integrations: <IntegrationsTab />,
     afip:         hasAfip ? <AfipTab /> : <PlanLimitBlock feature="Facturación AFIP / ARCA" upgradeLabel={upgradeLabel} />,
     account:      <AccountTab />,
@@ -856,14 +972,16 @@ export function SettingsContent() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-[22px] font-bold text-[var(--foreground)] tracking-tight">Configuración</h1>
-        <p className="text-[13px] text-[var(--subtle)] mt-0.5">Organización · Clínica · Integraciones · Mi cuenta</p>
+        <p className="text-[13px] text-[var(--subtle)] mt-0.5">
+          {isAdmin ? 'Organización · Clínica · Integraciones · Mi cuenta' : 'Agenda · Mi cuenta'}
+        </p>
       </div>
 
       <div className="flex gap-6">
         {/* Sidebar nav */}
         <div className="w-[180px] flex-shrink-0">
           <nav className="space-y-0.5">
-            {TABS.map(t => {
+            {visibleTabs.map(t => {
               const Icon = t.icon
               const disabled = !loading && !isAdmin && t.key === 'organization'
               return (

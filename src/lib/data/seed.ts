@@ -13,11 +13,11 @@ export const SEED_SPECIALTIES: Specialty[] = [
 ]
 
 export const SEED_PROFESSIONALS: Professional[] = [
-  { id: 'd1', organization_id: 'org1', full_name: 'Dra. Laura Méndez',       specialty_id: 's1', phone: '351-4400-001', email: 'lmendez@dentalink.app',      color: '#6366f1', is_active: true, bio: null, license_number: null, avatar_url: null, created_at: '', updated_at: '' },
-  { id: 'd2', organization_id: 'org1', full_name: 'Dr. Carlos Villafuerte',  specialty_id: 's2', phone: '351-4400-002', email: 'cvillafuerte@dentalink.app', color: '#10b981', is_active: true, bio: null, license_number: null, avatar_url: null, created_at: '', updated_at: '' },
-  { id: 'd3', organization_id: 'org1', full_name: 'Dra. Sofía Ríos',         specialty_id: 's3', phone: '351-4400-003', email: 'srios@dentalink.app',         color: '#f59e0b', is_active: true, bio: null, license_number: null, avatar_url: null, created_at: '', updated_at: '' },
-  { id: 'd4', organization_id: 'org1', full_name: 'Dr. Martín Herrera',      specialty_id: 's4', phone: '351-4400-004', email: 'mherrera@dentalink.app',      color: '#ef4444', is_active: true, bio: null, license_number: null, avatar_url: null, created_at: '', updated_at: '' },
-  { id: 'd5', organization_id: 'org1', full_name: 'Dra. Paula Castro',       specialty_id: 's5', phone: '351-4400-005', email: 'pcastro@dentalink.app',       color: '#8b5cf6', is_active: true, bio: null, license_number: null, avatar_url: null, created_at: '', updated_at: '' },
+  { id: 'd1', organization_id: 'org1', full_name: 'Dra. Laura Méndez',       specialty_id: 's1', phone: '351-4400-001', email: 'lmendez@dentalink.app',      color: '#6366f1', is_active: true, bio: null, license_number: null, profile_id: null, avatar_url: null, created_at: '', updated_at: '' },
+  { id: 'd2', organization_id: 'org1', full_name: 'Dr. Carlos Villafuerte',  specialty_id: 's2', phone: '351-4400-002', email: 'cvillafuerte@dentalink.app', color: '#10b981', is_active: true, bio: null, license_number: null, profile_id: null, avatar_url: null, created_at: '', updated_at: '' },
+  { id: 'd3', organization_id: 'org1', full_name: 'Dra. Sofía Ríos',         specialty_id: 's3', phone: '351-4400-003', email: 'srios@dentalink.app',         color: '#f59e0b', is_active: true, bio: null, license_number: null, profile_id: null, avatar_url: null, created_at: '', updated_at: '' },
+  { id: 'd4', organization_id: 'org1', full_name: 'Dr. Martín Herrera',      specialty_id: 's4', phone: '351-4400-004', email: 'mherrera@dentalink.app',      color: '#ef4444', is_active: true, bio: null, license_number: null, profile_id: null, avatar_url: null, created_at: '', updated_at: '' },
+  { id: 'd5', organization_id: 'org1', full_name: 'Dra. Paula Castro',       specialty_id: 's5', phone: '351-4400-005', email: 'pcastro@dentalink.app',       color: '#8b5cf6', is_active: true, bio: null, license_number: null, profile_id: null, avatar_url: null, created_at: '', updated_at: '' },
 ]
 
 const P = (id: string, fn: string, ln: string, tel: string, notes = ''): Patient => ({

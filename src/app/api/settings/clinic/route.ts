@@ -14,7 +14,30 @@ async function getAuthenticatedUser() {
   return user
 }
 
-// PUT — update clinic fields (uses service client to bypass RLS)
+// GET — list clinics for the user's organization
+export async function GET() {
+  const user = await getAuthenticatedUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = createAdminClient()
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('organization_id, role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  // Superadmin sees all clinics, others see only their org
+  const query = admin.from('clinics').select('id, name, organization_id').eq('is_active', true)
+  if (profile.role !== 'superadmin') query.eq('organization_id', profile.organization_id)
+
+  const { data, error } = await query.order('name')
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data ?? [])
+}
+
+// PUT — update clinic fields
 export async function PUT(req: NextRequest) {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

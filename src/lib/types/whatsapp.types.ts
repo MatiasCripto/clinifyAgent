@@ -93,6 +93,8 @@ export interface BotContext {
   messageCount: number
   isKnownPatient: boolean
   clinicName?: string
+  // conversation history for AI
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
 export interface BotMessage {

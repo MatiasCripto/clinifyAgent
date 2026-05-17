@@ -91,13 +91,25 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, orgId: org.id })
 }
 
-// PATCH — toggle organization is_active
+// PATCH — update organization or clinic
 export async function PATCH(request: NextRequest) {
   const admin = await requireSuperadmin()
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { id, is_active, plan, name } = body
+  const { id, is_active, plan, name, clinicId, clinicName } = body
+
+  // If clinicId is provided, update a clinic
+  if (clinicId) {
+    const updates: Record<string, unknown> = {}
+    if (clinicName !== undefined) updates.name = clinicName
+    if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'nada que actualizar' }, { status: 400 })
+
+    const { error } = await admin.from('clinics').update(updates).eq('id', clinicId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   const updates: Record<string, unknown> = {}
@@ -110,6 +122,78 @@ export async function PATCH(request: NextRequest) {
     .update(updates)
     .eq('id', id)
 
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+// DELETE — permanently delete an organization or clinic
+export async function DELETE(request: NextRequest) {
+  const admin = await requireSuperadmin()
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { id, clinicId } = await request.json()
+
+  // If clinicId is provided, delete just that clinic
+  if (clinicId) {
+    const { error } = await admin.from('clinics').delete().eq('id', clinicId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  }
+
+  if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+
+  // Get auth users linked to profiles in this org so we can delete them
+  const { data: profiles } = await admin.from('profiles').select('id').eq('organization_id', id)
+  const authIds = (profiles ?? []).map(p => p.id)
+
+  // Delete org (FKs cascade: clinics, weekly_schedules, appointments, etc.)
+  const { error } = await admin.from('organizations').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Clean up auth users
+  for (const uid of authIds) {
+    try { await admin.auth.admin.deleteUser(uid) } catch { /* user may already be gone */ }
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+// POST (clinic) — add a new clinic to an existing organization
+export async function PUT(request: NextRequest) {
+  const admin = await requireSuperadmin()
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const body = await request.json()
+  const { organization_id, name } = body
+  if (!organization_id || !name?.trim()) {
+    return NextResponse.json({ error: 'organization_id y name son requeridos' }, { status: 400 })
+  }
+
+  const { data, error } = await admin
+    .from('clinics')
+    .insert({
+      organization_id,
+      name: name.trim(),
+      timezone: 'America/Argentina/Buenos_Aires',
+      is_active: true,
+      settings: {},
+    })
+    .select('*')
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
+// DELETE clinic
+export async function OPTIONS(request: NextRequest) {
+  const admin = await requireSuperadmin()
+  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { clinicId } = await request.json()
+  if (!clinicId) return NextResponse.json({ error: 'clinicId requerido' }, { status: 400 })
+
+  const { error } = await admin.from('clinics').delete().eq('id', clinicId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

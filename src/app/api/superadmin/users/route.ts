@@ -96,13 +96,19 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-// DELETE — hard-delete user (profile cascade + auth user)
+// DELETE — hard-delete user (profile + auth user). Superadmins are protected.
 export async function DELETE(req: NextRequest) {
   const admin = await requireSuperadmin()
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+
+  // Protect superadmin accounts from deletion
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', id).single()
+  if (profile?.role === 'superadmin') {
+    return NextResponse.json({ error: 'No se puede eliminar al superadmin' }, { status: 403 })
+  }
 
   await admin.from('profiles').delete().eq('id', id)
 

@@ -1,28 +1,39 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { Avatar } from '@/components/ui/avatar'
 import { AppointmentRow } from '@/components/dashboard/appointment-row'
 import { ProgressBar } from '@/components/ui/progress-bar'
-import type { Professional, Appointment, Specialty, AvailabilityTemplate } from '@/lib/types'
+import type { Professional, Appointment, Specialty } from '@/lib/types'
 import { cn } from '@/lib/utils/cn'
-import { Pencil, Trash2, Check, AlertTriangle, Clock } from 'lucide-react'
+import { useRole } from '@/lib/hooks/use-auth'
+import { Pencil, Trash2, Check, AlertTriangle, Clock, ExternalLink, UserPlus, Key } from 'lucide-react'
 
 interface DayConfig {
-  id?: string
   day_of_week: number
   active: boolean
   start_time: string
   end_time: string
   slot_duration: number
+  slot_count: number
 }
 
 type Mode = 'view' | 'edit' | 'schedule'
 
 const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const DAY_LONG = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const TIME_OPTIONS = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00']
 const DURATION_OPTIONS = Array.from({ length: 10 }, (_, i) => (i + 3) * 5) // 15-60 step 5
+
+function getMonday(date: Date): Date {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  d.setDate(diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
 
 interface ProfessionalDetailProps {
   professional: Professional | null
@@ -34,6 +45,7 @@ interface ProfessionalDetailProps {
 }
 
 export function ProfessionalDetail({ professional, appointments, onClose, onEdit, onDelete }: ProfessionalDetailProps) {
+  const { isAdmin } = useRole()
   const [mode, setMode] = useState<Mode>('view')
   const [editingForm, setEditingForm] = useState<Partial<Professional & { specialty_id: string | null }>>({})
   const [saving, setSaving] = useState(false)
@@ -42,30 +54,54 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
 
+  // User creation
+  const [showCreateUser, setShowCreateUser] = useState(false)
+  const [newUserEmail, setNewUserEmail] = useState('')
+  const [newUserPassword, setNewUserPassword] = useState('')
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [specialties, setSpecialties] = useState<Specialty[]>([])
+  const [userCreated, setUserCreated] = useState(false)
+  const [userError, setUserError] = useState<string | null>(null)
+
   const selClass = cn(
     'px-2 py-1.5 text-[12px] rounded-[8px] border border-[var(--border)]',
     'bg-[var(--surface)] text-[var(--foreground)]',
     'focus:outline-none focus:ring-2 focus:ring-[var(--brand)] transition-all'
   )
 
+  // Load specialties for edit dropdown
+  useEffect(() => {
+    fetch('/api/settings/specialties').then(r => r.json()).then(d => { if (Array.isArray(d)) setSpecialties(d) }).catch(() => {})
+  }, [])
+
   const fetchAvailability = useCallback(async (profId: string) => {
     setLoadingSchedule(true)
     try {
-      const res = await fetch(`/api/settings/availability?professional_id=${profId}`)
-      if (res.ok) {
-        const templates: AvailabilityTemplate[] = await res.json()
-        const empty = Array.from({ length: 7 }, (_, i): DayConfig => ({
-          day_of_week: i, active: false, start_time: '09:00', end_time: '17:00', slot_duration: 30
-        }))
-        for (const t of templates) {
-          empty[t.day_of_week] = {
-            id: t.id, day_of_week: t.day_of_week, active: true,
-            start_time: t.start_time.slice(0, 5), end_time: t.end_time.slice(0, 5),
-            slot_duration: t.slot_duration,
+      const monday = getMonday(new Date())
+      const weekStr = monday.toISOString().split('T')[0]
+      const res = await fetch(`/api/settings/availability?professional_id=${profId}&week_start=${weekStr}`)
+      const data = await res.json()
+      const empty = Array.from({ length: 7 }, (_, i): DayConfig => ({
+        day_of_week: i, active: false, start_time: '09:00', end_time: '17:00', slot_duration: 30, slot_count: 0
+      }))
+      if (res.ok && data?.schedule) {
+        for (const key of Object.keys(data.schedule)) {
+          const i = parseInt(key)
+          const day = data.schedule[key]
+          if (day && day.is_working) {
+            const slots = day.slots ?? []
+            empty[i] = {
+              day_of_week: i,
+              active: true,
+              start_time: (day.start_time ?? '09:00').slice(0, 5),
+              end_time: (day.end_time ?? '17:00').slice(0, 5),
+              slot_duration: slots.length > 0 ? slots[0].duration : 30,
+              slot_count: slots.length,
+            }
           }
         }
-        setDays(empty)
       }
+      setDays(empty)
     } catch { /* ignore */ }
     setLoadingSchedule(false)
   }, [])
@@ -84,56 +120,105 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
   async function saveSchedule() {
     if (!professional) return
     setSavingSchedule(true)
+    const monday = getMonday(new Date())
+    const weekStr = monday.toISOString().split('T')[0]
+    const schedule: Record<string, { is_working: boolean; start_time: string; end_time: string; slots: { duration: number }[] }> = {}
     for (const day of days) {
-      if (day.active) {
-        await fetch('/api/settings/availability', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: day.id ?? null, professional_id: professional.id, day_of_week: day.day_of_week, start_time: day.start_time, end_time: day.end_time, slot_duration: day.slot_duration }),
-        })
-      } else if (day.id) {
-        await fetch('/api/settings/availability', {
-          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: day.id }),
-        })
+      schedule[String(day.day_of_week)] = {
+        is_working: day.active,
+        start_time: day.start_time,
+        end_time: day.end_time,
+        slots: day.active
+          ? Array.from({ length: Math.max(1, day.slot_count || 1) }, () => ({ duration: day.slot_duration }))
+          : [],
       }
     }
+    await fetch('/api/settings/availability', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ professional_id: professional.id, clinic_id: null, week_start_date: weekStr, schedule }),
+    })
     setSavingSchedule(false); setMode('view')
+  }
+
+  async function createUserAccess() {
+    if (!professional || !newUserEmail || !newUserPassword) return
+    setCreatingUser(true); setUserError(null)
+    const res = await fetch('/api/settings/professionals', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ professional_id: professional.id, email: newUserEmail, password: newUserPassword, full_name: professional.full_name }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setUserError(data.error ?? 'Error al crear usuario'); setCreatingUser(false); return }
+    setUserCreated(true)
+    setCreatingUser(false)
   }
 
   function toggleDay(i: number) { setDays(p => p.map((d, idx) => idx === i ? { ...d, active: !d.active } : d)) }
   function updateDay(i: number, f: string, v: string | number) { setDays(p => p.map((d, idx) => idx === i ? { ...d, [f]: v } : d)) }
 
+  const activeDays = days.filter(d => d.active).length
+  const hasMultiSlotDays = days.some(d => d.active && d.slot_count > 1)
+
   if (mode === 'schedule') {
     return (
-      <Modal open={!!professional} onClose={() => setMode('view')} size="lg" title="Horarios del profesional">
+      <Modal open={!!professional} onClose={() => setMode('view')} size="lg" title={`Horarios — ${professional.full_name}`}>
         {loadingSchedule ? (
           <div className="text-center py-12 text-[13px] text-[var(--subtle)]">Cargando horarios...</div>
         ) : (
           <div className="space-y-3">
-            <p className="text-[12px] text-[var(--subtle)] mb-3">
+            <p className="text-[12px] text-[var(--subtle)]">
               Seleccioná los días que trabaja {professional.full_name}, su horario y la duración de cada turno.
             </p>
+
+            {/* Link to detailed agenda */}
+            <a
+              href="/settings"
+              className="flex items-center gap-1.5 text-[12px] text-[var(--brand)] hover:underline"
+            >
+              <ExternalLink size={11} />
+              Para asignar distintas duraciones a cada turno, usá Settings → Agenda
+            </a>
+
+            {activeDays === 0 && !loadingSchedule && (
+              <div className="text-center py-6 text-[13px] text-[var(--subtle)]">
+                No hay días configurados para esta semana. Activá los días abajo o configuralos en Settings → Agenda.
+              </div>
+            )}
+
             {days.map((day, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
+              <div key={i} className={cn(
+                'flex items-center gap-3 p-3 rounded-[10px] border transition-colors',
+                day.active
+                  ? 'border-[var(--brand)]/40 bg-[var(--brand-subtle)]'
+                  : 'border-[var(--border)] bg-[var(--surface)]'
+              )}>
                 <label className="flex items-center gap-2 cursor-pointer min-w-[80px]">
                   <input type="checkbox" checked={day.active} onChange={() => toggleDay(i)}
                     className="w-4 h-4 rounded border-[var(--border)] text-[var(--brand)] focus:ring-[var(--brand)]" />
-                  <span className={cn('text-[13px] font-semibold', day.active ? 'text-[var(--foreground)]' : 'text-[var(--subtle)]')}>{DAY_SHORT[i]}</span>
+                  <span className={cn('text-[13px] font-semibold', day.active ? 'text-[var(--foreground)]' : 'text-[var(--subtle)]')}>
+                    {DAY_LONG[i]}
+                  </span>
                 </label>
-                {day.active && (
-                  <>
+                {day.active ? (
+                  <div className="flex items-center gap-2 flex-wrap">
                     <select value={day.start_time} onChange={e => updateDay(i, 'start_time', e.target.value)} className={cn(selClass, 'w-[85px]')}>
                       {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <span className="text-[var(--subtle)]">—</span>
+                    <span className="text-[var(--subtle)] text-[12px]">a</span>
                     <select value={day.end_time} onChange={e => updateDay(i, 'end_time', e.target.value)} className={cn(selClass, 'w-[85px]')}>
                       {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <span className="text-[var(--subtle)] ml-1">Turnos de</span>
+                    <span className="text-[var(--subtle)] text-[12px] ml-1">· {day.slot_count > 0 ? day.slot_count : 1} turno{day.slot_count !== 1 ? 's' : ''} de</span>
                     <select value={day.slot_duration} onChange={e => updateDay(i, 'slot_duration', parseInt(e.target.value))} className={cn(selClass, 'w-[80px]')}>
                       {DURATION_OPTIONS.map(m => <option key={m} value={m}>{m} min</option>)}
                     </select>
-                  </>
+                    {day.slot_count > 1 && (
+                      <span className="text-[10px] text-[var(--brand)]">(misma duración para todos)</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[12px] text-[var(--subtle)]">No trabaja</span>
                 )}
               </div>
             ))}
@@ -162,6 +247,7 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
             <label className="block text-[11px] font-semibold text-[var(--subtle)] uppercase tracking-wide mb-1.5">Especialidad</label>
             <select className={cn(selClass, 'w-full')} value={editingForm.specialty_id ?? ''} onChange={e => setEditingForm(f => ({ ...f, specialty_id: e.target.value || null }))}>
               <option value="">Sin especialidad</option>
+              {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -217,6 +303,70 @@ export function ProfessionalDetail({ professional, appointments, onClose, onEdit
               </div>
             </div>
           )}
+          {/* ── User Access Section (admin/owner only) ── */}
+          {isAdmin && (
+            <div className="mb-5 p-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-2)]">
+              <div className="flex items-center gap-2 mb-2">
+                <Key size={13} className="text-[var(--muted)]" />
+                <span className="text-[12.5px] font-semibold text-[var(--foreground)]">Acceso al sistema</span>
+              </div>
+              {professional.profile_id || userCreated ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-[12px] text-green-600">
+                    <Check size={13} />
+                    Usuario vinculado — el profesional puede iniciar sesión
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-[var(--subtle)]">Rol asignado:</span>
+                    <span className="badge bg-blue-100 text-blue-700 text-[10px]">Staff</span>
+                    <span className="text-[10px] text-[var(--subtle)]">Turnos · Pacientes · Mensajes · Sin acceso a Settings</span>
+                  </div>
+                </div>
+              ) : showCreateUser ? (
+                <div className="space-y-2">
+                  <p className="text-[12px] text-[var(--subtle)]">Creá un usuario para que {professional.full_name} pueda iniciar sesión y ver sus turnos.</p>
+                  <div className="flex items-center gap-2 text-[11px] text-[var(--subtle)]">
+                    <span>Rol:</span>
+                    <span className="badge bg-blue-100 text-blue-700 text-[10px]">Staff</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newUserEmail}
+                      onChange={e => setNewUserEmail(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 rounded-[8px] bg-[var(--surface)] border border-[var(--border)] text-[12px] text-[var(--foreground)] placeholder:text-[var(--subtle)] focus:outline-none focus:border-[var(--brand)]"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Contraseña (mín. 8)"
+                      value={newUserPassword}
+                      onChange={e => setNewUserPassword(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 rounded-[8px] bg-[var(--surface)] border border-[var(--border)] text-[12px] text-[var(--foreground)] placeholder:text-[var(--subtle)] focus:outline-none focus:border-[var(--brand)]"
+                    />
+                  </div>
+                  {userError && <p className="text-[11px] text-red-500">{userError}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={createUserAccess} disabled={creatingUser || !newUserEmail || newUserPassword.length < 8}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[var(--brand)] text-white text-[12px] font-semibold hover:bg-[var(--brand-dark)] disabled:opacity-60">
+                      <UserPlus size={12} /> {creatingUser ? 'Creando...' : 'Crear acceso'}
+                    </button>
+                    <button onClick={() => { setShowCreateUser(false); setUserError(null) }}
+                      className="px-3 py-1.5 rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--muted)] hover:bg-[var(--surface)]">Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-[12px] text-[var(--subtle)] mb-2">Este profesional aún no tiene un usuario para iniciar sesión.</p>
+                  <button onClick={() => { setShowCreateUser(true); setNewUserEmail(professional.email ?? ''); setNewUserPassword(''); setUserError(null); setUserCreated(false) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-[var(--brand)] text-white text-[12px] font-semibold hover:bg-[var(--brand-dark)]">
+                    <UserPlus size={12} /> Crear acceso
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-3 mb-5">
             {[{ label: 'Total', value: appointments.length, c: professional.color }, { label: 'Confirmados', value: confirmed, c: '#10b981' }, { label: 'Pendientes', value: pending, c: '#f59e0b' }, { label: 'Pacientes', value: uniquePatients, c: '#6366f1' }].map(s => (
               <div key={s.label} className="rounded-[10px] p-3 text-center" style={{ background: s.c + '15' }}>
