@@ -878,6 +878,8 @@ export async function POST(req: NextRequest) {
               selectedProfessional: a.professional,
               selectedSpecialty: a.specialty,
               selectedAppointmentId: null,
+              ...(a.patientName ? { patientName: a.patientName } : {}),
+              ...(a.patientDni ? { pendingDni: a.patientDni } : {}),
             }
             try {
               await saveAppointmentFromBot(bookCtx, orgId)
