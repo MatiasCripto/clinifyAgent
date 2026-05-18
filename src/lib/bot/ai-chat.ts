@@ -1,9 +1,10 @@
-// ── Conversational AI engine for WhatsApp bot ──────────────────
-// AI-first architecture: the AI generates ALL patient-facing responses.
-// The rule-based engine only tracks state — it never talks to patients.
+// ── Conversational AI agent for WhatsApp bot ─────────────────────
+// Agent architecture: the AI receives ALL data and drives the
+// conversation naturally. The backend only executes validated actions.
 //
 // Data flow:
-//   DB → context builder → AI system prompt → natural response
+//   DB → full context builder → AI agent → structured JSON response
+//   JSON response → parser → send message + execute action (if any)
 //
 // The AI NEVER invents data. All specialties, professionals, and
 // availability come from the context built by the webhook handler.
@@ -49,67 +50,109 @@ export interface AiContext {
   history?: Array<{ role: 'user' | 'assistant'; content: string }>
 }
 
-// ── System Prompt ──────────────────────────────────────────────
+// Parsed response from the AI agent
+export interface AgentResponse {
+  message: string       // What to send to the patient
+  action: AgentAction | null  // Action to execute (if any)
+}
 
-const SYSTEM_PROMPT = `Sos Ana, la secretaria de una clínica médica moderna. Atendés por WhatsApp como una persona REAL.
+export interface AgentAction {
+  type: 'book' | 'cancel'
+  // For book:
+  specialty?: string
+  professional?: string
+  date?: string       // DD/MM/YYYY
+  time?: string       // HH:MM
+  area?: string       // optional service area
+  patientName?: string
+  patientDni?: string
+  // For cancel:
+  appointmentId?: string
+}
+
+// ── Agent System Prompt ───────────────────────────────────────
+
+const SYSTEM_PROMPT = `SOS UNA AGENTE AUTÓNOMA. Sos Ana, la secretaria de una clínica médica. Atendés por WhatsApp.
 
 PERSONALIDAD:
 - Cálida, eficiente, humana, cercana, profesional
 - Mensajes CORTOS (1-3 oraciones). UNA pregunta por vez.
-- Emojis leves y naturales: 😊 👍 ✅
-- Te adaptás al paciente: si escribe corto → respondés corto; si duda → lo guiás; si está apurado → vas directo
-- NO parecés chatbot. Sonás como una secretora de verdad.
+- Emojis leves: 😊 👍 ✅
+- NO parecés chatbot. Sonás como una secretaria de verdad.
 
 PROHIBIDO:
-- "Seleccione una opción", "Ingrese sus datos", "Estoy procesando"
-- "Asistente virtual", "Menú principal", "Indique el motivo", "Ticket", "Estimado cliente"
-- "Respondé con el número", "Opción inválida"
-- Listas numeradas (1️⃣ 2️⃣ 3️⃣), bullets o items con emojis
-- Interrogatorios, mensajes largos, preguntar datos que el paciente ya dió
-- Negritas, markdown o formatos especiales
-- Repetir exactamente el mismo mensaje
-- Incluir fragmentos del mensaje del paciente en tu respuesta
+- Frases de robot: "Seleccione una opción", "Ingrese sus datos", "Asistente virtual", "Menú principal"
+- Listas numeradas, bullets, markdown, negritas
+- Repetir el mismo mensaje
+- Inventar datos que NO están en el contexto
 
-DATOS — REGLAS OBLIGATORIAS (LEÉ ESTO PRIMERO):
-- ⛔ PROHIBIDO INVENTAR DATOS. Todo lo que digas DEBE estar en el CONTEXTO.
-- ⛔ NUNCA digas "hoy", "hoy tenemos", "disponible hoy" si availableDates es null o vacío.
-- ⛔ NUNCA menciones días específicos (hoy, mañana, lunes) sin datos reales de availableDates.
-- ⛔ Si el estado es main_menu o identify_patient: SOLO saludá y preguntá en qué podés ayudar. NO listes profesionales.
-- ⛔ Si alguien pregunta "qué especialidades tienen" o "qué profesionales hay", AHÍ SÍ usá los datos del contexto.
-- ⛔ NUNCA ofrezcas todos los profesionales de una sin que te pregunten.
-- ⛔ Si el contexto dice que hay profesionales para una especialidad, NUNCA digas que no hay.
-- ⛔ Si el contexto lista profesionales con nombres reales, usá ESOS nombres.
-- ⛔ NUNCA sugieras especialidades que NO aparecen en el contexto.
-- ⛔ Si alguien pregunta "quién atiende en X", respondé con los nombres EXACTOS del mapeo.
-- El contexto es tu ÚNICA fuente de verdad. Lo que no está en el contexto, NO EXISTE.
-- Si el estado es booking_specialty: NO ofrezcas fechas ni horarios — preguntá primero la especialidad.
-- Si availableDates está vacío y en estado booking_date: decí que no hay disponibilidad.
-- Ofrecé solo alternativas que ESTÉN en el contexto.
-- Confirmás antes de reservar.
-
-CAPACIDADES:
-- Sacar turnos, cancelarlos y reprogramarlos
-- Decir EXACTAMENTE qué profesionales cubren cada especialidad (del mapeo del contexto, PALABRA POR PALABRA)
-- Decir qué días y horarios atiende cada profesional (solo si availableDates/availableSlots está presente)
-- Si un profesional tiene áreas de atención, las mencionás
+DATOS (tu ÚNICA fuente de verdad):
+- El contexto tiene todo lo que necesitás: profesionales, especialidades, áreas, disponibilidad, turnos del paciente
+- Lo que NO está en el contexto, NO EXISTE. No lo inventes.
+- Usá los nombres EXACTOS del contexto, sin cambiarlos.
+- Cada día de la agenda tiene áreas asignadas con horarios y duración específica. Solo ofrecés lo que está cargado para ese día.
 
 FLUJO NATURAL:
-- Si es nuevo → saludar y preguntar cómo podés ayudar
-- Si ya lo conocés → saludo corto y preguntar qué necesita
-- JAMÁS listes profesionales o especialidades en el primer mensaje
-- Preguntar especialidad → ofrecer profesionales → consultar disponibilidad → ofrecer horarios (pocos, 3-4 máx) → confirmar → reservar
-- Responder preguntas libres de forma natural y volver al objetivo
-- Si el paciente pregunta algo fuera de lo que sabés, decile con honestidad
+- Saludar brevemente, preguntar qué necesita
+- El paciente dice especialidad → mostrás profesionales de ESA especialidad
+- El profesional tiene áreas → preguntás qué área necesita (solo las áreas que existen en el contexto)
+- El paciente elige área → mostrás SOLO los días que tienen disponibilidad para ESA área específica
+- El paciente elige día → mostrás SOLO los horarios disponibles para ESA área en ESE día
+- El paciente elige horario → pedís nombre completo y DNI
+- Tenés nombre y DNI → pedís confirmación explícita
+- Confirmación → reservás (action="book")
 
-EJEMPLOS DE TONO:
-- "Hola 😊 ¿En qué puedo ayudarte?"
-- "¿Para qué especialidad necesitás el turno?"
-- "Tengo a la Dra. Martínez y al Dr. López. ¿Tenés preferencia?"
-- "Perfecto, ¿el martes a las 10:30 te queda bien?"
-- "Dale, ya te lo reservo 👍"
-- "Por ahora no tengo turnos con ese profesional 😕 ¿Querés que vea con otro?"`
+REGLAS DE DISPONIBILIDAD:
+- ⛔ NUNCA ofrezcas un día si ese día no tiene slots disponibles para el área elegida.
+- ⛔ NUNCA ofrezcas un horario si ese horario no está disponible para el área elegida en ese día.
+- ⛔ NUNCA reserves un área en un día/horario que no esté cargado en la agenda del profesional.
+- Si el paciente pide un día o horario que no está disponible para esa área, informale amablemente y ofrecé las alternativas reales.
 
-// ── Build conversational context for AI ───────────────────────
+ANTES DE CONFIRMAR:
+- Cuando el paciente ya eligió especialidad, área, profesional, día y horario, pedí nombre completo y DNI.
+- Ejemplo: "Antes de confirmar, ¿me decís tu nombre completo y DNI? 😊"
+- No reserves sin tener nombre y DNI.
+- El teléfono se obtiene automáticamente del chat, no lo pidas.
+
+CONFIRMACIÓN OBLIGATORIA:
+- ⛔ NUNCA reserves ni canceles sin confirmación EXPLÍCITA del paciente.
+- ⛔ El paciente confirma con: "sí", "si", "confirmo", "confirmar", "dale", "ok", "va", "listo"
+- ⛔ Si dice algo ambiguo como "bueno", "joya", "genial" → respondé: "¿Me confirmás el turno? 😊"
+- Solo ponés action="book" cuando el paciente YA confirmó explícitamente.
+
+RESPONDÉ SIEMPRE EN JSON:
+{
+  "message": "lo que le decís al paciente",
+  "action": null
+}
+
+O si ya confirmó:
+{
+  "message": "¡Listo! ✅ Turno reservado.",
+  "action": {
+    "type": "book",
+    "specialty": "Odontologia",
+    "professional": "Denise Rodsevich",
+    "date": "18/05/2026",
+    "time": "10:30",
+    "area": "Limpieza",
+    "patientName": "Juan Pérez",
+    "patientDni": "12345678"
+  }
+}
+
+Para cancelar:
+{
+  "message": "Listo, cancelé tu turno del lunes 👍",
+  "action": {
+    "type": "cancel",
+    "appointmentId": "el-id-del-turno"
+  }
+}
+
+⛔ RESPONDÉ SOLO EL JSON, NADA MÁS. Sin texto antes ni después.`
+
+// ── Build context for the AI agent ──────────────────────────
 
 export function buildAiPrompt(
   userMessage: string,
@@ -118,86 +161,82 @@ export function buildAiPrompt(
   const parts: string[] = []
 
   // Clinic info
-  if (ctx.clinicName) {
-    parts.push(`Clínica: ${ctx.clinicName}`)
-  }
+  if (ctx.clinicName) parts.push(`Clínica: ${ctx.clinicName}`)
 
   // Patient info
   if (ctx.patientName) {
     parts.push(`Paciente: ${ctx.patientName}`)
-  }
-  if (ctx.isKnownPatient) {
-    parts.push(`Es paciente registrado en el sistema.`)
+    if (ctx.isKnownPatient) parts.push(`Es paciente registrado.`)
   }
 
-  // Current booking state
-  if (ctx.selectedSpecialty) {
-    parts.push(`Especialidad elegida: ${ctx.selectedSpecialty}`)
-  }
-  if (ctx.selectedProfessional && ctx.selectedProfessional !== 'Sin preferencia') {
-    parts.push(`Profesional elegido: ${ctx.selectedProfessional}`)
-  }
-  if (ctx.selectedDate) {
-    parts.push(`Fecha elegida: ${ctx.selectedDate}`)
-  }
-  if (ctx.selectedTime) {
-    parts.push(`Horario elegido: ${ctx.selectedTime}`)
-  }
-
-  // REAL data from DB
+  // Specialties & professionals
   if (ctx.specialties.length > 0) {
-    parts.push(`Especialidades disponibles HOY en el sistema: ${ctx.specialties.join(', ')}`)
-  }
-  if (ctx.professionals.length > 0) {
-    parts.push(`Profesionales activos HOY en la clínica: ${ctx.professionals.join(', ')}`)
+    parts.push(`Especialidades: ${ctx.specialties.join(', ')}`)
   }
   if (ctx.professionalsBySpecialty && Object.keys(ctx.professionalsBySpecialty).length > 0) {
-    parts.push(`Mapeo completo especialidad → profesionales:`)
+    parts.push(`Especialidad → profesionales:`)
     for (const [spec, profs] of Object.entries(ctx.professionalsBySpecialty)) {
       parts.push(`  ${spec}: ${profs.join(', ')}`)
     }
   }
-  if (ctx.availableDates && ctx.availableDates.length > 0) {
-    parts.push(`Fechas con disponibilidad real: ${ctx.availableDates.map(d => d.label).join(', ')}`)
-  }
-  if (ctx.availableSlots && ctx.availableSlots.length > 0) {
-    parts.push(`Horarios disponibles (usar SOLO estos): ${ctx.availableSlots.map(s => s.label).join(', ')}`)
-  }
-  if (ctx.professionalSchedule) {
-    parts.push(`Horario semanal del profesional elegido: ${ctx.professionalSchedule}`)
-  }
-  if (ctx.professionalAreas) {
-    parts.push(`Áreas de atención del profesional: ${ctx.professionalAreas}`)
-  }
 
-  // Pre-fetched availability across all professionals (next 14 days)
+  // Availability for ALL professionals (next 14 days)
   if (ctx.allAvailability && Object.keys(ctx.allAvailability).length > 0) {
-    parts.push(`DISPONIBILIDAD REAL (próximos 14 días) — USÁ SOLO ESTOS DATOS:`)
+    parts.push(`Disponibilidad próximos 14 días:`)
     for (const [prof, dates] of Object.entries(ctx.allAvailability)) {
       parts.push(`  ${prof}: ${dates.join(', ')}`)
     }
-    parts.push(`Si un profesional no aparece en esta lista, no tiene turnos disponibles.`)
-    parts.push(`NUNCA digas "hoy" si hoy no está en las fechas de arriba.`)
   } else {
-    parts.push(`No hay turnos disponibles en los próximos 14 días para ningún profesional.`)
+    parts.push(`No hay turnos disponibles en los próximos 14 días.`)
   }
 
-  // Upcoming appointments
+  // Specific slots if in booking flow
+  if (ctx.availableSlots && ctx.availableSlots.length > 0) {
+    parts.push(`Horarios disponibles para el día elegido: ${ctx.availableSlots.map(s => s.label).join(', ')}`)
+  }
+
+  // Areas for selected professional
+  if (ctx.professionalAreas) {
+    parts.push(`Áreas del profesional: ${ctx.professionalAreas}`)
+  }
+
+  // Patient's upcoming appointments
   if (ctx.upcomingAppointments && ctx.upcomingAppointments.length > 0) {
-    parts.push(`Turnos próximos del paciente:`)
+    parts.push(`Turnos del paciente:`)
     for (const a of ctx.upcomingAppointments) {
-      parts.push(`  - ${a.date} ${a.time} — ${a.professional} (${a.specialty})`)
+      parts.push(`  - ID:${a.id} | ${a.date} ${a.time} | ${a.professional} (${a.specialty})`)
     }
+  } else {
+    parts.push(`El paciente no tiene turnos registrados.`)
   }
 
-  // Current conversation state (for AI awareness)
-  parts.push(`Estado de la conversación: ${ctx.state}`)
   parts.push(``)
   parts.push(`Mensaje del paciente: "${userMessage}"`)
-  parts.push(``)
-  parts.push(`Instrucción: Respondé como Ana, la secretaria. Un solo mensaje, corto y natural. Sin listas numeradas. Sin markdown.`)
 
   return parts.join('\n')
+}
+
+// ── Parse agent JSON response ──────────────────────────────
+
+export function parseAgentResponse(raw: string): AgentResponse {
+  try {
+    // Try to extract JSON from the response (handle potential markdown wrapping)
+    let json = raw.trim()
+    // Remove markdown code block if present
+    if (json.startsWith('```')) {
+      json = json.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+    }
+    const parsed = JSON.parse(json) as { message?: string; action?: AgentAction | null }
+    if (parsed.message) {
+      return {
+        message: parsed.message,
+        action: parsed.action || null,
+      }
+    }
+  } catch { /* fall through to fallback */ }
+
+  // Fallback: return raw text as message, no action
+  return { message: raw.trim(), action: null }
 }
 
 // ── AI API Callers ─────────────────────────────────────────────
@@ -373,13 +412,13 @@ async function loadConfig(orgId?: string): Promise<AiConfig | null> {
   return null
 }
 
-// ── Main AI Chat Function ──────────────────────────────────────
+// ── Main AI Agent Function ─────────────────────────────────
 
 export async function generateAiResponse(
   userMessage: string,
   ctx: AiContext,
   orgId?: string
-): Promise<string | null> {
+): Promise<AgentResponse | null> {
   const config = await loadConfig(orgId)
   if (!config) return null
 
@@ -398,22 +437,31 @@ export async function generateAiResponse(
   messages.push({ role: 'user', content: buildAiPrompt(userMessage, ctx) })
 
   // Call AI provider
+  let raw: string | null = null
   try {
     switch (config.provider) {
       case 'anthropic':
-        return await callAnthropic(config.apiKey, config.model || 'claude-sonnet-4-20250514', messages)
+        raw = await callAnthropic(config.apiKey, config.model || 'claude-sonnet-4-20250514', messages)
+        break
       case 'deepseek':
-        return await callDeepSeek(config.apiKey, config.model || 'deepseek-chat', messages)
+        raw = await callDeepSeek(config.apiKey, config.model || 'deepseek-chat', messages)
+        break
       case 'groq':
-        return await callGroq(config.apiKey, config.model || 'llama-3.3-70b-versatile', messages)
+        raw = await callGroq(config.apiKey, config.model || 'llama-3.3-70b-versatile', messages)
+        break
       case 'google':
-        return await callGoogle(config.apiKey, config.model || 'gemini-2.0-flash', messages)
+        raw = await callGoogle(config.apiKey, config.model || 'gemini-2.0-flash', messages)
+        break
       case 'openai':
       default:
-        return await callOpenAI(config.apiKey, config.model || 'gpt-4o', messages)
+        raw = await callOpenAI(config.apiKey, config.model || 'gpt-4o', messages)
+        break
     }
   } catch (err) {
-    console.error('[AI Chat] Error:', err)
+    console.error('[AI Agent] Error:', err)
     return null
   }
+
+  if (!raw) return null
+  return parseAgentResponse(raw)
 }

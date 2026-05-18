@@ -165,20 +165,27 @@ async function getProfessionalId(name: string, orgId?: string): Promise<string |
   return data?.id ?? null
 }
 
-async function getScheduleForProfessional(professionalId: string): Promise<{
+async function getScheduleForProfessional(professionalId: string, dateKey?: string): Promise<{
   templates: Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }>
-  weeklyInfo: string  // human-readable schedule summary for AI
-  daySlots: Record<number, Array<{ areaName: string | null; duration: number }>> // per-day slot definitions with area
+  weeklyInfo: string
+  daySlots: Record<number, Array<{ areaName: string | null; duration: number }>>
 }> {
   const sb = createServiceClient()
-  // Query weekly_schedules (the table used by the Settings UI)
-  const { data } = await sb
+
+  let query = sb
     .from('weekly_schedules')
     .select('schedule')
     .eq('professional_id', professionalId)
-    .order('week_start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  // Si tenemos fecha, buscamos la semana exacta. Si no, tomamos la más reciente.
+  if (dateKey) {
+    const weekStart = getWeekStartDate(dateKey)
+    query = query.eq('week_start_date', weekStart)
+  } else {
+    query = query.order('week_start_date', { ascending: false }).limit(1)
+  }
+
+  const { data } = await query.maybeSingle()
 
   const schedule = (data?.schedule ?? {}) as Record<string, { is_working?: boolean; start_time?: string; end_time?: string; slot_duration?: number; slots?: Array<{ area_id?: string; duration: number }> }>
   const templates: Array<{ day_of_week: number; start_time: string; end_time: string; slot_duration: number }> = []
@@ -186,7 +193,6 @@ async function getScheduleForProfessional(professionalId: string): Promise<{
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const weeklyParts: string[] = []
 
-  // Pre-fetch all area names for this professional
   const areaIds = new Set<string>()
   for (const [, day] of Object.entries(schedule)) {
     for (const s of (day.slots ?? [])) { if (s.area_id) areaIds.add(s.area_id) }
@@ -210,7 +216,6 @@ async function getScheduleForProfessional(professionalId: string): Promise<{
     })
     weeklyParts.push(`${dayNames[dow]} ${day.start_time.slice(0, 5)}-${day.end_time.slice(0, 5)}`)
 
-    // Preserve per-slot area/duration info
     if ((day.slots ?? []).length > 0) {
       daySlots[dow] = (day.slots ?? []).map(s => ({
         areaName: s.area_id ? (areaMap[s.area_id] ?? null) : null,
@@ -219,7 +224,6 @@ async function getScheduleForProfessional(professionalId: string): Promise<{
     }
   }
 
-  // Also fallback to availability_templates for backward compatibility
   if (templates.length === 0) {
     const { data: legacy } = await sb
       .from('availability_templates')
@@ -317,7 +321,8 @@ async function getSlotsForDate(
   let allSlots: Array<{ date: string; time: string; label: string; duration: number }> = []
 
   for (const pid of professionalIds) {
-    const { templates, daySlots } = await getScheduleForProfessional(pid)
+    // ← CAMBIO CLAVE: pasamos dateKey para buscar la semana correcta
+    const { templates, daySlots } = await getScheduleForProfessional(pid, dateKey)
     const dayTemplates = templates.filter(t => t.day_of_week === dayOfWeek)
 
     if (dayTemplates.length === 0) continue
@@ -539,6 +544,19 @@ async function registerNewPatient(ctx: BotContext, phone: string, orgId?: string
     dni: ctx.pendingDni ?? null,
   }, { onConflict: 'phone' }).select('id').single()
   return patient ? (patient as Record<string, string>).id : null
+}
+
+
+function getWeekStartDate(dateKey: string): string {
+  const [dd, mm, yy] = dateKey.split('/').map(Number)
+  const date = new Date(yy, mm - 1, dd, 12)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day // lunes como inicio de semana
+  date.setDate(date.getDate() + diff)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 // ── Fallback responses (used only when AI is unavailable) ──────
@@ -839,18 +857,51 @@ export async function POST(req: NextRequest) {
       history: ctx.history ?? [],
     }
 
-    console.log('[Bot] AI context — allAvailability:', JSON.stringify(allAvailability))
-    console.log('[Bot] AI context — professionals:', JSON.stringify(professionalsForAi))
-    console.log('[Bot] AI context — specialties:', JSON.stringify(aiContext.specialties))
-    console.log('[Bot] Calling AI with orgId:', orgId, 'state:', aiContext.state)
-    aiText = await generateAiResponse(text, aiReq, orgId)
+    console.log('[Agent] Context — allAvailability:', JSON.stringify(allAvailability))
+    console.log('[Agent] Calling AI with orgId:', orgId)
+    const agentRes = await generateAiResponse(text, aiReq, orgId)
+
+    if (agentRes) {
+      aiText = agentRes.message
+      console.log('[Agent] Response OK. Action:', agentRes.action?.type ?? 'none')
+
+      // ── Execute agent action (with backend validation) ──────────
+      if (agentRes.action) {
+        const a = agentRes.action
+        if (a.type === 'book') {
+          // Validate and execute booking
+          if (a.date && a.time && a.professional && a.specialty) {
+            // Set the booking context for saveAppointmentFromBot
+            const bookCtx = { ...newContext,
+              selectedDate: a.date,
+              selectedTime: a.time,
+              selectedProfessional: a.professional,
+              selectedSpecialty: a.specialty,
+              selectedAppointmentId: null,
+            }
+            try {
+              await saveAppointmentFromBot(bookCtx, orgId)
+              newContext.state = 'booking_done'
+            } catch (err) { console.error('[Agent] Book error:', err) }
+          } else {
+            console.error('[Agent] Incomplete book action:', a)
+          }
+        } else if (a.type === 'cancel') {
+          if (a.appointmentId) {
+            const cancelCtx = { ...newContext, selectedAppointmentId: a.appointmentId }
+            try {
+              await cancelAppointmentFromBot(cancelCtx)
+            } catch (err) { console.error('[Agent] Cancel error:', err) }
+          }
+        }
+      }
+    } else {
+      console.log('[Agent] AI returned null')
+    }
 
     // Fall back to rule-based if AI failed
     if (!aiText) {
-      console.log('[Bot] AI returned null for state:', aiContext.state, 'orgId:', orgId)
       aiText = getFallbackResponse(aiContext)
-    } else {
-      console.log('[Bot] AI response OK for state:', aiContext.state)
     }
   }
 
@@ -858,40 +909,7 @@ export async function POST(req: NextRequest) {
   if (aiText) {
     finalResponses = [aiText]
   } else {
-    // No AI and no fallback — filter out markers
     finalResponses = finalResponses.filter(r => !AI_MARKERS.includes(r))
-  }
-
-  // ── Booking persistence ─────────────────────────────────────
-  const justBooked      = newContext.state === 'booking_done' && ctx.state !== 'booking_done'
-  const justCancelled   = ctx.state === 'cancel_confirm'  && newContext.state === 'main_menu' && !!ctx.selectedAppointmentId
-  const justRescheduled = ctx.state === 'reschedule'      && newContext.state === 'booking_specialty' && !!ctx.selectedAppointmentId
-
-  if (justBooked) {
-    try { await saveAppointmentFromBot(newContext, orgId) } catch (err) { console.error('[Bot] Save appt error:', err) }
-  }
-  if (justCancelled) {
-    try { await cancelAppointmentFromBot(ctx) } catch (err) { console.error('[Bot] Cancel appt error:', err) }
-  }
-  if (justRescheduled) {
-    try {
-      await cancelAppointmentFromBot(ctx)
-      newContext.selectedAppointmentId = null
-      newContext.selectedDate = null
-      newContext.selectedTime = null
-    } catch (err) { console.error('[Bot] Reschedule error:', err) }
-  }
-
-  // Register new patient
-  const justRegistered = ctx.state === 'ask_dni' && newContext.state === 'main_menu' && !newContext.isKnownPatient
-  if (justRegistered && newContext.patientName) {
-    try {
-      const patientId = await registerNewPatient(newContext, phone, orgId)
-      if (patientId) {
-        newContext.patientId = patientId
-        newContext.isKnownPatient = true
-      }
-    } catch (err) { console.error('[Bot] Register patient error:', err) }
   }
 
   // ── Update conversation history ─────────────────────────────

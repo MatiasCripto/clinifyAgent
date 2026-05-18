@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     .select('*')
     .eq('professional_id', professionalId)
     .eq('week_start_date', weekStart)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
