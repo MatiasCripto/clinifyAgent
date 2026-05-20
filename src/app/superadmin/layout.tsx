@@ -11,8 +11,6 @@ import {
   Settings2, LogOut,
 } from 'lucide-react'
 
-const SA_SESSION_KEY = 'sa-session'
-
 const NAV = [
   { href: '/superadmin/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
   { href: '/superadmin/clients',       label: 'Clientes',       icon: Building2 },
@@ -35,13 +33,14 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (loading) return
-    const hasSession = sessionStorage.getItem(SA_SESSION_KEY) === '1'
     if (isLoginPage) {
-      if (hasSession && authUser?.role === 'superadmin') router.replace('/superadmin/dashboard')
+      // If already authenticated as superadmin, skip login page
+      if (authUser?.role === 'superadmin') router.replace('/superadmin/dashboard')
       else setSaReady(true)
       return
     }
-    if (!hasSession || authUser?.role !== 'superadmin') {
+    // All other superadmin pages require superadmin role
+    if (authUser?.role !== 'superadmin') {
       router.replace('/superadmin/login')
       return
     }
@@ -49,8 +48,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   }, [authUser, loading, router, isLoginPage])
 
   function handleLogout() {
-    sessionStorage.removeItem(SA_SESSION_KEY)
-    router.replace('/superadmin/login')
+    signOut()
   }
 
   if (!saReady) {

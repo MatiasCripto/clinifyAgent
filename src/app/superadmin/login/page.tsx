@@ -40,7 +40,6 @@ export default function SuperadminLoginPage() {
       return
     }
 
-    sessionStorage.setItem('sa-session', '1')
     router.replace('/superadmin')
   }
 
