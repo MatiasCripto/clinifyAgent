@@ -18,10 +18,11 @@ interface CreateForm {
   email: string
   password: string
   plan: OrgPlan
+  withTrial: boolean
 }
 
 const EMPTY_FORM: CreateForm = {
-  orgName: '', clinicName: '', ownerName: '', email: '', password: '', plan: 'starter',
+  orgName: '', clinicName: '', ownerName: '', email: '', password: '', plan: 'starter', withTrial: true,
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -199,6 +200,39 @@ export function SuperadminContent() {
     setOrgs(prev => prev.map(o => o.id === orgId ? { ...o, plan } : o))
   }
 
+  async function extendTrial(orgId: string, days: number) {
+    const res = await fetch('/api/superadmin/organizations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orgId, trial_extend_days: days }),
+    })
+    if (res.ok) {
+      setOrgs(prev => prev.map(o => {
+        if (o.id !== orgId) return o
+        const currentEnd = o.trial_ends_at ? new Date(o.trial_ends_at) : new Date()
+        if (currentEnd < new Date()) currentEnd.setTime(Date.now())
+        const newEnd = new Date(currentEnd.getTime() + days * 24 * 60 * 60 * 1000)
+        return { ...o, trial_ends_at: newEnd.toISOString(), trial_started_at: o.trial_started_at ?? new Date().toISOString() }
+      }))
+    }
+  }
+
+  async function activateTrial(orgId: string) {
+    const res = await fetch('/api/superadmin/organizations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orgId, trial_activate: true }),
+    })
+    if (res.ok) {
+      setOrgs(prev => prev.map(o => o.id === orgId ? {
+        ...o,
+        plan: o.plan === 'starter' ? 'pro' : o.plan,
+        trial_started_at: new Date().toISOString(),
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      } : o))
+    }
+  }
+
   function renameOrg(orgId: string, name: string) {
     setOrgs(prev => prev.map(o => o.id === orgId ? { ...o, name } : o))
   }
@@ -306,6 +340,7 @@ export function SuperadminContent() {
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Organización</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Clínica</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Plan</th>
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Trial</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Usuarios</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">WhatsApp</th>
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-[var(--subtle)]">Creado</th>
@@ -415,6 +450,39 @@ export function SuperadminContent() {
                         <option value="pro">Pro</option>
                         <option value="enterprise">Enterprise</option>
                       </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const trialEnd = org.trial_ends_at ? new Date(org.trial_ends_at) : null
+                        const isTrialing = trialEnd && trialEnd > new Date()
+                        const daysLeft = isTrialing ? Math.max(0, Math.ceil((trialEnd!.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0
+                        if (!org.trial_ends_at) return (
+                          <button onClick={() => activateTrial(org.id)} className="px-2 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-600 hover:bg-indigo-200 font-medium">Activar trial</button>
+                        )
+                        if (!isTrialing) return (
+                          <div className="space-y-1">
+                            <span className="text-[11px] text-red-500 font-medium">Vencido</span>
+                            <button onClick={() => activateTrial(org.id)} className="px-1.5 py-0.5 rounded text-[9px] bg-indigo-100 text-indigo-600 hover:bg-indigo-200">Reactivar</button>
+                          </div>
+                        )
+                        return (
+                          <div className="space-y-1">
+                            <span className="text-[11px] text-amber-600 font-medium">{daysLeft}d restantes</span>
+                            <div className="flex gap-0.5">
+                              <button
+                                onClick={() => extendTrial(org.id, 7)}
+                                className="px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                title="Extender 7 días"
+                              >+7d</button>
+                              <button
+                                onClick={() => extendTrial(org.id, 14)}
+                                className="px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                title="Extender 14 días"
+                              >+14d</button>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-1 text-[var(--muted)]">
@@ -542,6 +610,16 @@ export function SuperadminContent() {
                   <option value="enterprise">Enterprise</option>
                 </select>
               </div>
+
+              <label className="flex items-center gap-2.5 py-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.withTrial}
+                  onChange={e => setForm(prev => ({ ...prev, withTrial: e.target.checked }))}
+                  className="w-4 h-4 rounded accent-[var(--brand)]"
+                />
+                <span className="text-[13px] text-[var(--foreground)]">Iniciar con 14 días de prueba gratuita</span>
+              </label>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

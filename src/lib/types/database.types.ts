@@ -22,6 +22,8 @@ export interface Organization {
   plan: OrgPlan
   is_active: boolean
   settings: Json
+  trial_started_at?: string | null
+  trial_ends_at?: string | null
   created_at: string
   updated_at: string
 }

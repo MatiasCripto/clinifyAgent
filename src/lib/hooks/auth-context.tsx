@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       : { data: null }
     const org = (orgRes.data as Organization | null) ?? null
 
+
     let clinics: Clinic[] = []
     if (org) {
       const { data } = await supabase

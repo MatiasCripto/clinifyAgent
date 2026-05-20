@@ -10,12 +10,24 @@ export function usePlan() {
   const limits = getLimits(plan)
   const upgradeTo = UPGRADE_TO[plan]
 
+  // Trial
+  const trialEndsAt = authUser?.organization?.trial_ends_at ?? null
+  const isTrialing = trialEndsAt ? new Date(trialEndsAt) > new Date() : false
+  const isTrialExpired = trialEndsAt ? new Date(trialEndsAt) <= new Date() : false
+  const trialDaysLeft = isTrialing && trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0
+
   return {
     plan,
     planLabel: PLAN_LABELS[plan],
     limits,
     upgradeTo,
     upgradeLabel: upgradeTo ? PLAN_LABELS[upgradeTo] : null,
+    isTrialing,
+    isTrialExpired,
+    trialDaysLeft,
+    trialEndsAt,
     canAddProfessional: (count: number) => canAddPro(plan, count),
     canAddClinic: (count: number) => canAddCl(plan, count),
     canAddPatient: (count: number) => {

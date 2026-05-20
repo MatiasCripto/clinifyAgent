@@ -25,10 +25,10 @@ interface Subscription {
 interface OrgOption { id: string; name: string; plan: string }
 
 const STATUS_STYLE: Record<SubStatus, string> = {
-  active:    'bg-green-500/15 text-green-300 border-green-500/20',
-  trial:     'bg-blue-500/15 text-blue-300 border-blue-500/20',
-  suspended: 'bg-red-500/15 text-red-300 border-red-500/20',
-  cancelled: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
+  active:    'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/20',
+  trial:     'bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/20',
+  suspended: 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/20',
+  cancelled: 'bg-gray-100 dark:bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-500/20',
 }
 
 const STATUS_LABEL: Record<SubStatus, string> = {
@@ -36,9 +36,9 @@ const STATUS_LABEL: Record<SubStatus, string> = {
 }
 
 const PLAN_STYLE: Record<OrgPlan, string> = {
-  starter:    'bg-slate-500/20 text-slate-300',
-  pro:        'bg-indigo-500/20 text-indigo-300',
-  enterprise: 'bg-amber-500/20 text-amber-300',
+  starter:    'bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300',
+  pro:        'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300',
+  enterprise: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300',
 }
 
 function fmt(iso: string | null) {
@@ -49,12 +49,13 @@ function fmt(iso: string | null) {
 function SAInput({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-[12px] font-medium text-white/60">{label}</label>}
+      {label && <label className="block text-[12px] font-medium text-[var(--subtle)]">{label}</label>}
       <input
         {...props}
         className={cn(
-          'w-full px-3 py-2 rounded-[8px] bg-white/[0.04] border border-white/[0.08]',
-          'text-[13px] text-white/80 placeholder:text-white/20 focus:outline-none focus:border-violet-500/50 transition-colors'
+          'w-full px-3 py-2 rounded-[8px] bg-[var(--surface-2)] border border-[var(--border)]',
+          'text-[13px] text-[var(--foreground)] placeholder:text-[var(--subtle)] focus:outline-none focus:border-[var(--brand)] transition-colors',
+          props.className
         )}
       />
     </div>
@@ -64,12 +65,13 @@ function SAInput({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement
 function SASelect({ label, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string }) {
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-[12px] font-medium text-white/60">{label}</label>}
+      {label && <label className="block text-[12px] font-medium text-[var(--subtle)]">{label}</label>}
       <select
         {...props}
         className={cn(
-          'w-full px-3 py-2 rounded-[8px] bg-white/[0.04] border border-white/[0.08]',
-          'text-[13px] text-white/80 focus:outline-none focus:border-violet-500/50 transition-colors'
+          'w-full px-3 py-2 rounded-[8px] bg-[var(--surface-2)] border border-[var(--border)]',
+          'text-[13px] text-[var(--foreground)] focus:outline-none focus:border-[var(--brand)] transition-colors',
+          props.className
         )}
       >
         {children}
@@ -185,21 +187,21 @@ export function SubscriptionsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[19px] font-bold text-white/90">Suscripciones</h1>
-          <p className="text-[12px] text-white/30 mt-0.5">Gestión de planes y estados por cliente</p>
+          <h1 className="text-[19px] font-bold text-[var(--foreground)]">Suscripciones</h1>
+          <p className="text-[12px] text-[var(--subtle)] mt-0.5">Gestión de planes y estados por cliente</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} disabled={loading} className="p-2 rounded-[8px] bg-white/[0.04] border border-white/[0.08] text-white/40 hover:text-white/70 transition-colors">
+          <button onClick={load} disabled={loading} className="p-2 rounded-[8px] bg-[var(--surface-2)] border border-[var(--border)] text-[var(--subtle)] hover:text-[var(--foreground)] transition-colors">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 rounded-[8px] bg-violet-600 text-white text-[13px] font-semibold hover:bg-violet-500 transition-colors">
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 rounded-[8px] bg-[var(--brand)] text-white text-[13px] font-semibold hover:opacity-90 transition-colors">
             <Plus size={14} /> Nueva suscripción
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-1 border-b border-white/[0.06]">
+      <div className="flex items-center gap-1 border-b border-[var(--border)]">
         {(['all', 'active', 'trial', 'suspended', 'cancelled'] as const).map(s => (
           <button
             key={s}
@@ -207,8 +209,8 @@ export function SubscriptionsContent() {
             className={cn(
               'px-3 py-2 text-[12.5px] font-medium border-b-2 transition-colors',
               filter === s
-                ? 'border-violet-500 text-violet-300'
-                : 'border-transparent text-white/40 hover:text-white/70'
+                ? 'border-[var(--brand)] text-[var(--brand)]'
+                : 'border-transparent text-[var(--subtle)] hover:text-[var(--foreground)]'
             )}
           >
             {s === 'all' ? 'Todas' : STATUS_LABEL[s]}
@@ -218,35 +220,35 @@ export function SubscriptionsContent() {
       </div>
 
       {/* Table */}
-      <div className="rounded-[12px] bg-[#15151f] border border-white/[0.06] overflow-hidden">
+      <div className="rounded-[12px] bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Cliente</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Plan</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Estado</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Precio</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Período</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-white/30">Notas</th>
+              <tr className="border-b border-[var(--border)]">
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Cliente</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Plan</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Estado</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Precio</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Período</th>
+                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Notas</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center"><div className="flex justify-center"><div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div></td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center"><div className="flex justify-center"><div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" /></div></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-[12px] text-white/30">No hay suscripciones en esta categoría.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-[12px] text-[var(--subtle)]">No hay suscripciones en esta categoría.</td></tr>
               ) : filtered.map(s => {
                 const org = s.organizations
                 return (
-                  <tr key={s.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                  <tr key={s.id} className="border-b border-[var(--border)] hover:bg-[var(--surface-2)] transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                          <span className="text-violet-300 text-[9px] font-bold">{(org?.name ?? '?').charAt(0).toUpperCase()}</span>
+                        <div className="w-6 h-6 rounded-lg bg-[var(--brand-subtle)] flex items-center justify-center flex-shrink-0">
+                          <span className="text-[var(--brand)] text-[9px] font-bold">{(org?.name ?? '?').charAt(0).toUpperCase()}</span>
                         </div>
-                        <span className="text-white/70 font-medium">{org?.name ?? '—'}</span>
+                        <span className="text-[var(--foreground)] font-medium">{org?.name ?? '—'}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -259,17 +261,17 @@ export function SubscriptionsContent() {
                         {STATUS_LABEL[s.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white/50">{s.price_usd != null ? `USD ${s.price_usd}` : '—'}</td>
-                    <td className="px-4 py-3 text-white/40 text-[11.5px]">
+                    <td className="px-4 py-3 text-[var(--muted)]">{s.price_usd != null ? `USD ${s.price_usd}` : '—'}</td>
+                    <td className="px-4 py-3 text-[var(--subtle)] text-[11.5px]">
                       {s.current_period_start && s.current_period_end
                         ? `${fmt(s.current_period_start)} – ${fmt(s.current_period_end)}`
                         : s.trial_ends_at ? `Trial hasta ${fmt(s.trial_ends_at)}` : '—'}
                     </td>
-                    <td className="px-4 py-3 text-white/30 text-[11.5px] max-w-[160px] truncate">{s.notes ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--subtle)] text-[11.5px] max-w-[160px] truncate">{s.notes ?? '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
-                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-[6px] text-white/30 hover:text-white/70 hover:bg-white/[0.05] transition-colors"><Pencil size={12} /></button>
-                        <button onClick={() => handleDelete(s.id)} disabled={deleting === s.id} className="p-1.5 rounded-[6px] text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={12} /></button>
+                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-[6px] text-[var(--subtle)] hover:text-[var(--foreground)] hover:bg-[var(--surface-2)] transition-colors"><Pencil size={12} /></button>
+                        <button onClick={() => handleDelete(s.id)} disabled={deleting === s.id} className="p-1.5 rounded-[6px] text-[var(--subtle)] hover:text-red-500 hover:bg-red-500/10 transition-colors"><Trash2 size={12} /></button>
                       </div>
                     </td>
                   </tr>
@@ -282,15 +284,15 @@ export function SubscriptionsContent() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-[#15151f] rounded-[14px] border border-white/[0.08] w-full max-w-[480px] shadow-2xl">
-            <div className="flex items-center gap-3 p-5 border-b border-white/[0.06]">
-              <CreditCard size={16} className="text-violet-400" />
-              <h2 className="text-[14px] font-semibold text-white/80">{editing ? 'Editar suscripción' : 'Nueva suscripción'}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-[var(--surface)] rounded-[14px] border border-[var(--border)] w-full max-w-[480px] shadow-2xl">
+            <div className="flex items-center gap-3 p-5 border-b border-[var(--border)]">
+              <CreditCard size={16} className="text-[var(--brand)]" />
+              <h2 className="text-[14px] font-semibold text-[var(--foreground)]">{editing ? 'Editar suscripción' : 'Nueva suscripción'}</h2>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-4">
               {error && (
-                <div className="flex items-center gap-2 p-3 rounded-[8px] bg-red-500/10 border border-red-500/20 text-red-300 text-[12px]">
+                <div className="flex items-center gap-2 p-3 rounded-[8px] bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-300 text-[12px]">
                   <AlertCircle size={13} /> {error}
                 </div>
               )}
@@ -319,8 +321,8 @@ export function SubscriptionsContent() {
               <SAInput label="Fin de trial" type="date" value={form.trial_ends_at} onChange={e => f('trial_ends_at', e.target.value)} />
               <SAInput label="Notas" placeholder="Observaciones internas..." value={form.notes} onChange={e => f('notes', e.target.value)} />
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-[8px] border border-white/[0.08] text-[12.5px] text-white/50 hover:text-white/80 hover:bg-white/[0.04] transition-colors">Cancelar</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 rounded-[8px] bg-violet-600 text-white text-[12.5px] font-semibold hover:bg-violet-500 transition-colors disabled:opacity-60">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-[8px] border border-[var(--border)] text-[12.5px] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-2)] transition-colors">Cancelar</button>
+                <button type="submit" disabled={saving} className="px-4 py-2 rounded-[8px] bg-[var(--brand)] text-white text-[12.5px] font-semibold hover:opacity-90 transition-colors disabled:opacity-60">
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>

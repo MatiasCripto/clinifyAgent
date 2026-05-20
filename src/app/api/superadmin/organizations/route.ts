@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { orgName, clinicName, ownerName, email, password, plan = 'starter' } = body
+  const { orgName, clinicName, ownerName, email, password, plan = 'starter', withTrial = false } = body
 
   if (!orgName || !email || !password || !ownerName) {
     return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
@@ -45,7 +45,11 @@ export async function POST(request: NextRequest) {
   const slug = orgName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now().toString(36)
   const { data: org, error: orgError } = await admin
     .from('organizations')
-    .insert({ name: orgName, slug, plan, is_active: true, settings: {} })
+    .insert({
+      name: orgName, slug, plan, is_active: true, settings: {},
+      trial_started_at: withTrial ? new Date().toISOString() : null,
+      trial_ends_at: withTrial ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() : null,
+    })
     .select()
     .single()
 
@@ -97,7 +101,7 @@ export async function PATCH(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { id, is_active, plan, name, clinicId, clinicName } = body
+  const { id, is_active, plan, name, clinicId, clinicName, trial_extend_days, trial_activate } = body
 
   // If clinicId is provided, update a clinic
   if (clinicId) {
@@ -116,6 +120,24 @@ export async function PATCH(request: NextRequest) {
   if (is_active !== undefined) updates.is_active = is_active
   if (plan     !== undefined) updates.plan = plan
   if (name     !== undefined) updates.name = name
+
+  // Trial management
+  if (trial_extend_days !== undefined) {
+    // Extend trial by N days from now (or from current trial_ends_at if still active)
+    const { data: current } = await admin.from('organizations').select('trial_ends_at').eq('id', id).single()
+    const base = (current?.trial_ends_at && new Date(current.trial_ends_at) > new Date())
+      ? new Date(current.trial_ends_at)
+      : new Date()
+    updates.trial_ends_at = new Date(base.getTime() + trial_extend_days * 24 * 60 * 60 * 1000).toISOString()
+    updates.trial_started_at = updates.trial_started_at ?? new Date().toISOString()
+  }
+
+  if (trial_activate === true) {
+    // Start a fresh 14-day trial
+    updates.trial_started_at = new Date().toISOString()
+    updates.trial_ends_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+    updates.plan = updates.plan ?? 'pro'
+  }
 
   const { error } = await admin
     .from('organizations')

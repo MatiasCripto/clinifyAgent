@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
+import { TrialBanner } from '@/components/ui/trial-banner'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { AlertCircle } from 'lucide-react'
 
@@ -91,6 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
           }}
         />
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}
         </main>
