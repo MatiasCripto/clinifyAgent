@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Building2, ChevronDown, Check, Plus } from 'lucide-react'
+import { Building2, ChevronDown, Check, Plus, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils/cn'
 import type { Clinic } from '@/lib/types'
@@ -11,9 +11,12 @@ interface Props {
   currentClinic: Clinic | null
   onSelect: (clinicId: string) => void
   collapsed?: boolean
+  onAddClinic?: () => void
+  canAddClinic?: boolean
+  hasMultiSucursal?: boolean
 }
 
-export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed }: Props) {
+export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed, onAddClinic, canAddClinic = true, hasMultiSucursal = true }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -24,6 +27,9 @@ export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed }: 
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  // Starter plan: only first clinic, disable selector
+  const disabled = !hasMultiSucursal && clinics.length > 1
 
   if (collapsed) {
     return (
@@ -36,21 +42,32 @@ export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed }: 
     )
   }
 
+  const displayClinics = disabled ? clinics.slice(0, 1) : clinics
+
   return (
     <div ref={ref} className="mx-3 mt-3 relative">
       <button
-        onClick={() => setOpen(!open)}
-        className="w-full px-3 py-2 rounded-[10px] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] transition-colors flex items-center gap-2 text-left"
+        onClick={() => { if (!disabled) setOpen(!open) }}
+        disabled={disabled}
+        title={disabled ? 'Multi-sucursal disponible en plan Pro o superior' : undefined}
+        className={cn(
+          'w-full px-3 py-2 rounded-[10px] bg-[var(--surface-2)] transition-colors flex items-center gap-2 text-left',
+          disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-[var(--surface-3)]'
+        )}
       >
         <Building2 size={15} className="text-[var(--muted)] flex-shrink-0" />
         <span className="flex-1 text-[12.5px] font-medium text-[var(--foreground)] truncate">
           {currentClinic?.name ?? 'Seleccionar clínica'}
         </span>
-        <ChevronDown size={13} className={cn('text-[var(--subtle)] transition-transform flex-shrink-0', open && 'rotate-180')} />
+        {disabled ? (
+          <Lock size={11} className="text-[var(--subtle)] flex-shrink-0" />
+        ) : (
+          <ChevronDown size={13} className={cn('text-[var(--subtle)] transition-transform flex-shrink-0', open && 'rotate-180')} />
+        )}
       </button>
 
       <AnimatePresence>
-        {open && (
+        {open && !disabled && (
           <motion.div
             initial={{ opacity: 0, y: -6, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -58,10 +75,10 @@ export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed }: 
             transition={{ duration: 0.12 }}
             className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-[var(--surface)] border border-[var(--border)] rounded-[12px] shadow-lg overflow-hidden"
           >
-            {clinics.length === 0 ? (
+            {displayClinics.length === 0 ? (
               <p className="text-[12px] text-[var(--subtle)] px-3 py-2.5">Sin clínicas</p>
             ) : (
-              clinics.map(clinic => (
+              displayClinics.map(clinic => (
                 <button
                   key={clinic.id}
                   onClick={() => { onSelect(clinic.id); setOpen(false) }}
@@ -91,11 +108,22 @@ export function ClinicSelector({ clinics, currentClinic, onSelect, collapsed }: 
                 </button>
               ))
             )}
-            <div className="border-t border-[var(--border)]">
-              <button className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] text-[var(--subtle)] hover:text-[var(--brand)] hover:bg-[var(--surface-2)] transition-colors">
-                <Plus size={13} /> Agregar sede
-              </button>
-            </div>
+            {onAddClinic && (
+              <div className="border-t border-[var(--border)]">
+                {canAddClinic ? (
+                  <button
+                    onClick={() => { onAddClinic(); setOpen(false) }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] text-[var(--subtle)] hover:text-[var(--brand)] hover:bg-[var(--surface-2)] transition-colors"
+                  >
+                    <Plus size={13} /> Agregar sede
+                  </button>
+                ) : (
+                  <div className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] text-amber-600 cursor-not-allowed">
+                    <Lock size={13} /> Límite de sucursales alcanzado
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,30 +1,34 @@
 import type { OrgPlan } from '@/lib/types'
 
 export interface PlanLimits {
-  professionals: number      // -1 = unlimited
-  clinics: number            // -1 = unlimited
-  afip: boolean
+  professionals: number | null   // null = unlimited
+  clinics: number | null         // null = unlimited
+  patients: number | null        // null = unlimited
   analytics: boolean
+  multi_sucursal: boolean
 }
 
 export const PLAN_LIMITS: Record<OrgPlan, PlanLimits> = {
   starter: {
     professionals: 1,
     clinics: 1,
-    afip: false,
-    analytics: true,
+    patients: 500,
+    analytics: false,
+    multi_sucursal: false,
   },
   pro: {
-    professionals: 5,
-    clinics: -1,
-    afip: true,
+    professionals: 3,
+    clinics: 2,
+    patients: null,
     analytics: true,
+    multi_sucursal: true,
   },
   enterprise: {
-    professionals: -1,
-    clinics: -1,
-    afip: true,
+    professionals: null,
+    clinics: null,
+    patients: null,
     analytics: true,
+    multi_sucursal: true,
   },
 }
 
@@ -46,10 +50,10 @@ export function getLimits(plan: OrgPlan): PlanLimits {
 
 export function canAddProfessional(plan: OrgPlan, currentCount: number): boolean {
   const limit = getLimits(plan).professionals
-  return limit === -1 || currentCount < limit
+  return limit === null || currentCount < limit
 }
 
 export function canAddClinic(plan: OrgPlan, currentCount: number): boolean {
   const limit = getLimits(plan).clinics
-  return limit === -1 || currentCount < limit
+  return limit === null || currentCount < limit
 }

@@ -17,6 +17,8 @@ import { getNpsColor, getNpsWord, getComplianceLabel } from '@/lib/utils/formatt
 import { computePatientScore } from '@/lib/utils/patient-scores'
 import { Brain, TrendingUp, Users, AlertTriangle, BarChart3, Target, BarChart2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { usePlan } from '@/lib/plans/use-plan'
+import { UpgradeGate } from '@/components/ui/upgrade-gate'
 import type { Patient, Appointment, NpsResponse } from '@/lib/types'
 
 const fade = (i: number) => ({
@@ -41,10 +43,15 @@ function EmptyState() {
 }
 
 export function AnalyticsContent() {
+  const { hasAnalytics } = usePlan()
   const [patients,     setPatients]     = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [npsData,      setNpsData]      = useState<NpsResponse[]>([])
   const [loading,      setLoading]      = useState(true)
+
+  if (!hasAnalytics) {
+    return <UpgradeGate feature="Analytics" requiredPlan="Pro" description="Los reportes RFM, NPS, churn y demanda están disponibles en el plan Pro o superior." />
+  }
 
   useEffect(() => {
     const sb = createClient()

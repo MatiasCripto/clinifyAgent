@@ -5,26 +5,23 @@ import { motion } from 'framer-motion'
 import {
   Building2, Stethoscope, Plug, User, Shield, Calendar,
   Save, Check, AlertCircle, Eye, EyeOff, Copy, Camera,
-  FileKey, Upload, CheckCircle2, Brain,
+  Upload, CheckCircle2, Brain,
 } from 'lucide-react'
 import { WhatsAppQR } from '@/components/settings/whatsapp-qr'
 import { AgendaTab } from '@/components/settings/agenda-tab'
 import { cn } from '@/lib/utils/cn'
 import { useAuth, useRole } from '@/lib/hooks/use-auth'
-import { usePlan } from '@/lib/plans/use-plan'
-import { PlanLimitBlock } from '@/components/ui/plan-limit-banner'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { createClient } from '@/lib/supabase/client'
 
 // ── Types ────────────────────────────────────────────────────
-type Tab = 'organization' | 'clinic' | 'integrations' | 'afip' | 'account' | 'roles' | 'agenda'
+type Tab = 'organization' | 'clinic' | 'integrations' | 'account' | 'roles' | 'agenda'
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }[] = [
   { key: 'organization',  label: 'Organización',   icon: Building2 },
   { key: 'clinic',        label: 'Clínica',         icon: Stethoscope },
   { key: 'agenda',        label: 'Agenda',          icon: Calendar },
   { key: 'integrations',  label: 'Integraciones',   icon: Plug },
-  { key: 'afip',          label: 'ARCA / AFIP',     icon: FileKey },
   { key: 'account',       label: 'Mi cuenta',       icon: User },
   { key: 'roles',         label: 'Roles y acceso',  icon: Shield },
 ]
@@ -665,294 +662,14 @@ function RolesTab() {
   )
 }
 
-// ── AFIP / ARCA ──────────────────────────────────────────────
-const TUTORIAL_STEPS = [
-  {
-    num: '1',
-    title: 'Ingresá a ARCA con clave fiscal',
-    desc: 'Entrá a arca.gob.ar con tu CUIT y clave fiscal nivel 3 o superior.',
-    detail: 'Si no tenés clave fiscal nivel 3, pedila en cualquier dependencia de ARCA con tu DNI.',
-    color: 'bg-indigo-500',
-  },
-  {
-    num: '2',
-    title: 'Habilitá el servicio "Factura Electrónica"',
-    desc: 'En "Administrador de relaciones de clave fiscal" → Adherir servicio → buscá "Factura Electrónica".',
-    detail: 'Si ya lo tenés habilitado, pasá al paso siguiente.',
-    color: 'bg-violet-500',
-  },
-  {
-    num: '3',
-    title: 'Generá el certificado digital',
-    desc: 'Menú → Administración de Certificados Digitales → Agregar → completá los datos.',
-    detail: 'Vas a descargar un archivo .p12. Guardá muy bien la contraseña que ponés — la vas a necesitar acá.',
-    color: 'bg-blue-500',
-  },
-  {
-    num: '4',
-    title: 'Vinculá el certificado al servicio wsfe',
-    desc: 'En la misma pantalla de certificados → seleccioná el que acabás de crear → Vincular → elegí "wsfe" (Facturación Electrónica v1).',
-    detail: 'Sin este paso ARCA rechazará todas las solicitudes de CAE.',
-    color: 'bg-cyan-500',
-  },
-  {
-    num: '5',
-    title: 'Habilitá tu punto de venta',
-    desc: 'Factura Electrónica → ABM de puntos de venta → Agregar → tipo "Web Services".',
-    detail: 'Anotá el número (normalmente 1 o 2). Ese número va en el campo "Punto de venta" de abajo.',
-    color: 'bg-teal-500',
-  },
-  {
-    num: '6',
-    title: 'Cargá el certificado acá y probá',
-    desc: 'Subí el .p12, ingresá tu CUIT y la contraseña. Dejá el modo homologación activado para hacer pruebas.',
-    detail: 'En homologación podés emitir facturas de prueba sin efectos reales. Cuando todo funcione, desactivá el modo y listo.',
-    color: 'bg-green-500',
-  },
-]
-
-function TutorialStep({ step, isLast }: { step: typeof TUTORIAL_STEPS[0]; isLast: boolean }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="flex gap-3">
-      <div className="flex flex-col items-center flex-shrink-0">
-        <div className={`w-6 h-6 rounded-full ${step.color} flex items-center justify-center flex-shrink-0`}>
-          <span className="text-white text-[10px] font-bold">{step.num}</span>
-        </div>
-        {!isLast && <div className="w-px flex-1 bg-[var(--border)] mt-1 mb-1 min-h-[16px]" />}
-      </div>
-      <div className={cn('pb-4 flex-1', isLast && 'pb-0')}>
-        <button
-          type="button"
-          onClick={() => setOpen(o => !o)}
-          className="w-full text-left"
-        >
-          <p className="text-[13px] font-semibold text-[var(--foreground)] leading-tight">{step.title}</p>
-          <p className="text-[11.5px] text-[var(--muted)] mt-0.5 leading-relaxed">{step.desc}</p>
-        </button>
-        {open && (
-          <div className="mt-2 p-2.5 rounded-[8px] bg-[var(--surface-2)] border border-[var(--border)]">
-            <p className="text-[11.5px] text-[var(--subtle)] leading-relaxed">{step.detail}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function AfipTab() {
-  const [cuit,       setCuit]       = useState('')
-  const [puntoVenta, setPuntoVenta] = useState('1')
-  const [passphrase, setPassphrase] = useState('')
-  const [sandbox,    setSandbox]    = useState(true)
-  const [showTutorial, setShowTutorial] = useState(false)
-  const [certName,   setCertName]   = useState<string | null>(null)
-  const [certB64,    setCertB64]    = useState<string | null>(null)
-  const [hasCert,    setHasCert]    = useState(false)
-  const [saved,      setSaved]      = useState(false)
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    fetch('/api/afip/credentials')
-      .then(r => r.json())
-      .then(d => {
-        if (!d) return
-        setCuit(d.cuit ?? '')
-        setPuntoVenta(String(d.punto_venta ?? 1))
-        setSandbox(d.sandbox ?? true)
-        setHasCert(d.has_certificate ?? false)
-      })
-  }, [])
-
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setCertName(file.name)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const b64 = (reader.result as string).split(',')[1]
-      setCertB64(b64)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true); setError(null)
-    const res = await fetch('/api/afip/credentials', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cuit,
-        punto_venta: parseInt(puntoVenta),
-        sandbox,
-        ...(certB64    && { certificate_base64: certB64 }),
-        ...(passphrase && { passphrase }),
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) { setError(data.error); setLoading(false); return }
-    setHasCert(data.has_certificate ?? hasCert)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    setLoading(false)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-[540px]">
-      <div>
-        <h2 className="text-[15px] font-semibold text-[var(--foreground)]">Facturación electrónica ARCA</h2>
-        <p className="text-[12px] text-[var(--subtle)] mt-0.5">
-          Configurá el certificado digital para emitir facturas con CAE.
-        </p>
-      </div>
-
-      {/* Tutorial */}
-      <div className="rounded-[12px] border border-[var(--border)] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowTutorial(o => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-[var(--surface-2)] hover:bg-[var(--border)] transition-colors text-left"
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[14px]">📋</span>
-            <span className="text-[13px] font-semibold text-[var(--foreground)]">¿Cómo activarlo paso a paso?</span>
-            <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">6 pasos · ~15 min</span>
-          </div>
-          <span className="text-[var(--subtle)] text-[11px]">{showTutorial ? '▲ Ocultar' : '▼ Ver tutorial'}</span>
-        </button>
-
-        {showTutorial && (
-          <div className="px-4 pt-4 pb-2 space-y-0 border-t border-[var(--border)]">
-            {TUTORIAL_STEPS.map((step, i) => (
-              <TutorialStep key={step.num} step={step} isLast={i === TUTORIAL_STEPS.length - 1} />
-            ))}
-
-            <div className="mt-3 mb-4 p-3 rounded-[10px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex gap-2">
-              <span className="text-[13px] flex-shrink-0">⚠️</span>
-              <div className="text-[11.5px] text-amber-800 dark:text-amber-300 space-y-1">
-                <p><strong>Monotributistas:</strong> usá Factura C (FC-C). No llevás IVA discriminado.</p>
-                <p><strong>Responsables inscriptos:</strong> usá Factura A (FC-A) para clientes con CUIT, y Factura B (FC-B) para consumidores finales.</p>
-                <p><strong>Punto de venta:</strong> tiene que ser de tipo <strong>"Web Services"</strong> en ARCA, no "Local".</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Sandbox toggle */}
-      <div className="flex items-center justify-between p-3 rounded-[12px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-        <div>
-          <p className="text-[13px] font-medium text-amber-800 dark:text-amber-300">Modo homologación (pruebas)</p>
-          <p className="text-[11px] text-amber-600 dark:text-amber-500">Desactivá cuando estés listo para producción</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSandbox(s => !s)}
-          className={cn(
-            'relative w-10 h-5 rounded-full transition-colors flex-shrink-0',
-            sandbox ? 'bg-amber-400' : 'bg-[var(--brand)]'
-          )}
-        >
-          <span className={cn(
-            'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
-            sandbox ? 'left-0.5' : 'left-5'
-          )} />
-        </button>
-      </div>
-
-      <FormField label="CUIT (sin guiones)" hint="Ej: 20123456789">
-        <Input
-          value={cuit}
-          onChange={e => setCuit(e.target.value.replace(/\D/g, ''))}
-          placeholder="20123456789"
-          maxLength={11}
-          required
-        />
-      </FormField>
-
-      <FormField label="Punto de venta" hint="Número de punto de venta habilitado en ARCA (usualmente 1)">
-        <Input
-          type="number"
-          value={puntoVenta}
-          onChange={e => setPuntoVenta(e.target.value)}
-          min={1}
-          max={9999}
-          required
-        />
-      </FormField>
-
-      {/* Certificado */}
-      <div className="space-y-2">
-        <label className="block text-[12.5px] font-medium text-[var(--foreground)]">
-          Certificado digital (.p12)
-        </label>
-        {hasCert && !certB64 && (
-          <div className="flex items-center gap-2 p-2.5 rounded-[10px] bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-            <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
-            <span className="text-[12px] text-green-700 dark:text-green-400">Certificado cargado — subí uno nuevo para reemplazarlo</span>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-dashed border-[var(--border)] hover:border-[var(--brand)] hover:bg-[var(--brand-subtle)] transition-colors text-[12.5px] text-[var(--muted)] w-full"
-        >
-          <Upload size={14} />
-          {certName ?? 'Seleccionar archivo .p12'}
-        </button>
-        <input ref={fileRef} type="file" accept=".p12,.pfx" className="hidden" onChange={handleFile} />
-        <p className="text-[11px] text-[var(--subtle)]">
-          Generá el certificado en <strong>ARCA → Administración de Certificados Digitales</strong>
-        </p>
-      </div>
-
-      <FormField label="Contraseña del certificado" hint="La contraseña que pusiste al generar el .p12">
-        <Input
-          type="password"
-          value={passphrase}
-          onChange={e => setPassphrase(e.target.value)}
-          placeholder={hasCert ? '(sin cambios)' : 'Contraseña del certificado'}
-        />
-      </FormField>
-
-      {/* Info */}
-      <div className="p-3 rounded-[12px] bg-[var(--surface-2)] border border-[var(--border)] space-y-1.5">
-        <div className="flex items-center gap-2">
-          <FileKey size={13} className="text-[var(--brand)]" />
-          <span className="text-[12px] font-medium text-[var(--foreground)]">¿Cómo obtengo el certificado?</span>
-        </div>
-        <ol className="text-[11.5px] text-[var(--muted)] space-y-0.5 pl-4 list-decimal">
-          <li>Ingresá a <strong>arca.gob.ar</strong> con CUIT y clave fiscal</li>
-          <li>Buscá <strong>Administración de Certificados Digitales</strong></li>
-          <li>Generá un nuevo certificado para el servicio <strong>wsfe</strong></li>
-          <li>Descargá el archivo <strong>.p12</strong> y guardá la contraseña</li>
-          <li>Subilo acá y listo</li>
-        </ol>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[12px]">
-          <AlertCircle size={13} /> {error}
-        </div>
-      )}
-
-      <SaveButton loading={loading} saved={saved} />
-    </form>
-  )
-}
-
 // ── Main ─────────────────────────────────────────────────────
 export function SettingsContent() {
-  const { isAdmin, isStaff, role } = useRole()
+  const { isAdmin, isOwner, isStaff } = useRole()
   const { loading } = useAuth()
-  const { hasAfip, upgradeLabel } = usePlan()
 
-  // Staff only sees Agenda and Mi cuenta
+  // Staff only sees Agenda and Mi cuenta; Roles tab only for owners
   const visibleTabs = isAdmin
-    ? TABS
+    ? TABS.filter(t => t.key !== 'roles' || isOwner)
     : TABS.filter(t => t.key === 'agenda' || t.key === 'account')
 
   const [tab, setTab] = useState<Tab>(isAdmin ? 'organization' : 'agenda')
@@ -962,7 +679,6 @@ export function SettingsContent() {
     clinic:       <ClinicTab />,
     agenda:       <AgendaTab />,
     integrations: <IntegrationsTab />,
-    afip:         hasAfip ? <AfipTab /> : <PlanLimitBlock feature="Facturación AFIP / ARCA" upgradeLabel={upgradeLabel} />,
     account:      <AccountTab />,
     roles:        <RolesTab />,
   }

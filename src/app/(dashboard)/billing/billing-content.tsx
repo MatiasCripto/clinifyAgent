@@ -33,8 +33,6 @@ interface Invoice {
   tax_amount: number
   total: number
   notes: string | null
-  afip_cae: string | null
-  afip_cae_expiry: string | null
   paid_at: string | null
   created_at: string
   items?: InvoiceItem[]
@@ -87,10 +85,6 @@ export function BillingDashboard() {
 
   // Print invoice state
   const [printing, setPrinting] = useState<Invoice | null>(null)
-
-  // CAE state
-  const [requestingCae, setRequestingCae] = useState<string | null>(null)
-  const [caeError, setCaeError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -158,26 +152,6 @@ export function BillingDashboard() {
     setInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, status: 'paid', paid_at: new Date().toISOString() } : i))
   }
 
-  async function emitCae(inv: Invoice) {
-    setRequestingCae(inv.id)
-    setCaeError(null)
-    const res = await fetch('/api/afip/cae', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invoiceId: inv.id }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      setCaeError(data.error ?? 'Error al obtener CAE')
-    } else {
-      setInvoices(prev => prev.map(i => i.id === inv.id
-        ? { ...i, afip_cae: data.cae, afip_cae_expiry: data.cae_expiry, status: 'sent' }
-        : i
-      ))
-    }
-    setRequestingCae(null)
-  }
-
   async function handleDelete(id: string) {
     if (!confirm('¿Eliminar esta factura?')) return
     await fetch(`/api/invoices?id=${id}`, { method: 'DELETE' })
@@ -203,13 +177,6 @@ export function BillingDashboard() {
 
   return (
     <div className="space-y-6">
-      {caeError && (
-        <div className="flex items-center gap-2 p-3 rounded-[10px] bg-red-50 border border-red-200 text-red-700 text-[12.5px]">
-          <AlertCircle size={14} className="flex-shrink-0" />
-          <span>{caeError}</span>
-          <button onClick={() => setCaeError(null)} className="ml-auto text-red-400 hover:text-red-600">✕</button>
-        </div>
-      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -269,15 +236,14 @@ export function BillingDashboard() {
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Fecha</th>
                 <th className="text-right px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Total</th>
                 <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">Estado</th>
-                <th className="text-left px-4 py-3 text-[11px] font-medium text-[var(--subtle)]">CAE / AFIP</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center"><div className="flex justify-center"><div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" /></div></td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center"><div className="flex justify-center"><div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" /></div></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-[12px] text-[var(--subtle)]">Sin facturas en esta categoría.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-[12px] text-[var(--subtle)]">Sin facturas en esta categoría.</td></tr>
               ) : filtered.map(inv => {
                 const cfg   = STATUS_CFG[inv.status]
                 const Icon  = cfg.icon
@@ -300,26 +266,7 @@ export function BillingDashboard() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {inv.afip_cae ? (
-                        <div>
-                          <p className="text-[11px] font-mono text-[var(--muted)]">{inv.afip_cae}</p>
-                          {inv.afip_cae_expiry && <p className="text-[10px] text-[var(--subtle)]">Vto: {fmtDate(inv.afip_cae_expiry)}</p>}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-[var(--subtle)]">Sin CAE</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-end">
-                        {!inv.afip_cae && inv.status !== 'cancelled' && (
-                          <button
-                            onClick={() => emitCae(inv)}
-                            disabled={requestingCae === inv.id}
-                            className="px-2.5 py-1 rounded-[6px] text-[10.5px] font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors whitespace-nowrap disabled:opacity-60"
-                          >
-                            {requestingCae === inv.id ? 'Solicitando...' : 'Emitir CAE'}
-                          </button>
-                        )}
                         {inv.status !== 'paid' && inv.status !== 'cancelled' && (
                           <button onClick={() => markPaid(inv)} className="px-2.5 py-1 rounded-[6px] text-[10.5px] font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors whitespace-nowrap">
                             Marcar pagada
@@ -486,7 +433,6 @@ function InvoicePrintView({ invoice, onClose }: { invoice: Invoice; onClose: () 
             <div className="text-right">
               <p className="text-[12px] text-gray-500">Fecha: <span className="font-medium text-gray-700">{new Date(invoice.invoice_date).toLocaleDateString('es-AR')}</span></p>
               {invoice.due_date && <p className="text-[12px] text-gray-500">Vto: <span className="font-medium text-gray-700">{new Date(invoice.due_date).toLocaleDateString('es-AR')}</span></p>}
-              {invoice.afip_cae && <p className="text-[11px] text-gray-400 mt-1">CAE: {invoice.afip_cae}</p>}
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Search, UserPlus } from 'lucide-react'
+import { Search, UserPlus, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { PatientCard } from '@/components/patients/patient-card'
 import { PatientDetail } from '@/components/patients/patient-detail'
@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal'
 import { StatCard } from '@/components/ui/stat-card'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { usePlan } from '@/lib/plans/use-plan'
 import type { Patient, Appointment } from '@/lib/types'
 import { Users, TrendingDown, AlertTriangle, Star } from 'lucide-react'
 
@@ -26,6 +27,7 @@ const RFM_FILTERS: { key: RfmFilter; label: string }[] = [
 
 export function PatientsContent() {
   const { authUser } = useAuth()
+  const { canAddPatient, limits, upgradeLabel } = usePlan()
   const [search,       setSearch]       = useState('')
   const [rfmFilt,      setRfmFilt]      = useState<RfmFilter>('all')
   const [selected,     setSelected]     = useState<Patient | null>(null)
@@ -71,6 +73,7 @@ export function PatientsContent() {
 
   async function handleAdd() {
     if (!newPat.firstName || !newPat.phone) return
+    if (!canAddPatient(patients.length)) return
     setSaving(true)
     const sb = createClient()
     const orgId = authUser?.organization?.id
@@ -126,12 +129,18 @@ export function PatientsContent() {
           <h1 className="text-[22px] font-bold text-[var(--foreground)] tracking-tight">Pacientes</h1>
           <p className="text-[13px] text-[var(--subtle)] mt-0.5">{patients.length} pacientes registrados</p>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[var(--brand)] text-white text-[13px] font-semibold hover:bg-[var(--brand-dark)] transition-colors"
-        >
-          <UserPlus size={15} /> Agregar paciente
-        </button>
+        {canAddPatient(patients.length) ? (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-[10px] bg-[var(--brand)] text-white text-[13px] font-semibold hover:bg-[var(--brand-dark)] transition-colors"
+          >
+            <UserPlus size={15} /> Agregar paciente
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-[10px] border border-amber-300 bg-amber-50 text-amber-700 text-[13px] font-medium cursor-not-allowed" title={`Límite del plan: ${limits.patients} pacientes. Actualizá al plan ${upgradeLabel} para agregar más.`}>
+            <Lock size={14} /> Límite alcanzado ({limits.patients} pacientes)
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -214,6 +223,15 @@ export function PatientsContent() {
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Agregar paciente" size="sm">
         <div className="space-y-4">
+          {!canAddPatient(patients.length) && (
+            <div className="flex items-start gap-3 p-3 rounded-[10px] bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+              <Lock size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-[12px] font-medium text-amber-800 dark:text-amber-300">Límite de pacientes alcanzado</p>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">Tu plan Starter permite hasta {limits.patients} pacientes. Actualizá al plan {upgradeLabel} para agregar más.</p>
+              </div>
+            </div>
+          )}
           {[
             { id: 'fn', label: 'Nombre *',   key: 'firstName', placeholder: 'Ana' },
             { id: 'ln', label: 'Apellido *',  key: 'lastName',  placeholder: 'García' },

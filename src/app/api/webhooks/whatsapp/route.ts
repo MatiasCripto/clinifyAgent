@@ -293,8 +293,13 @@ function generateSlotsFromTemplates(
   return result
 }
 
+// Convert JavaScript getDay() (0=Sun,1=Mon,…,6=Sat) to UI format (0=Lun,1=Mar,…,6=Dom)
+function toUiDow(jsDow: number): number {
+  return jsDow === 0 ? 6 : jsDow - 1
+}
+
 async function getSlotsForDate(
-  dayOfWeek: number,
+  dayOfWeek: number,       // JavaScript getDay() format
   dateKey: string,
   professionalName: string | null,
   maxSlots = 9,
@@ -304,6 +309,7 @@ async function getSlotsForDate(
   const [dd, mm, yy] = dateKey.split('/').map(Number)
   const startISO = new Date(yy, mm - 1, dd, 0, 0).toISOString()
   const endISO   = new Date(yy, mm - 1, dd, 23, 59).toISOString()
+  const uiDow    = toUiDow(dayOfWeek)  // UI format for matching schedule keys
   const dayName  = DAY_NAMES[dayOfWeek]
 
   let professionalIds: string[] = []
@@ -323,7 +329,7 @@ async function getSlotsForDate(
   for (const pid of professionalIds) {
     // ← CAMBIO CLAVE: pasamos dateKey para buscar la semana correcta
     const { templates, daySlots } = await getScheduleForProfessional(pid, dateKey)
-    const dayTemplates = templates.filter(t => t.day_of_week === dayOfWeek)
+    const dayTemplates = templates.filter(t => t.day_of_week === uiDow)
 
     if (dayTemplates.length === 0) continue
 
@@ -337,7 +343,7 @@ async function getSlotsForDate(
       takenSet.add(`${dateKey}|${tKey}`)
     }
 
-    const slots = generateSlotsFromTemplates(dayTemplates, dateKey, takenSet, maxSlots, daySlots?.[dayOfWeek] ?? null)
+    const slots = generateSlotsFromTemplates(dayTemplates, dateKey, takenSet, maxSlots, daySlots?.[uiDow] ?? null)
       .map(s => ({ ...s, label: `${dayName} ${dd}/${mm} ${s.label}` }))
     allSlots = [...allSlots, ...slots]
   }
@@ -345,26 +351,32 @@ async function getSlotsForDate(
   return allSlots.slice(0, maxSlots)
 }
 
-async function fetchAvailableDates(professionalName: string | null, orgId?: string): Promise<{ date: string; label: string }[]> {
+async function fetchAvailableDates(professionalName: string | null, orgId?: string): Promise<Array<{ date: string; label: string; slots: Array<{ time: string; area: string | null; duration: number }> }>> {
   const today = new Date()
   const candidateDates: string[] = []
-  for (let i = 1; i <= 21; i++) {
+  for (let i = 0; i <= 21; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() + i)
     candidateDates.push(formatDateKey(d))
     if (candidateDates.length >= 14) break
   }
 
-  const foundDates: { date: string; label: string }[] = []
+  const foundDates: Array<{ date: string; label: string; slots: Array<{ time: string; area: string | null; duration: number }> }> = []
 
   for (const dateKey of candidateDates) {
     const [dd, mm, yy] = dateKey.split('/').map(Number)
     const dow = new Date(yy, mm - 1, dd, 12).getDay()
     const daySlots = await getSlotsForDate(dow, dateKey, professionalName, 9, orgId)
+    console.log(`[Availability] ${professionalName} | ${dateKey} (dow=${dow}) | slots: ${daySlots.length}`)
     if (daySlots.length > 0) {
       const dayName = DAY_NAMES[dow]
-      foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}` })
-      if (foundDates.length >= 7) break
+      // Extract area name from slot label (format: "a las 10:30 — Limpieza (20 min)" or "a las 10:30")
+      const slots = daySlots.map(s => {
+        const areaMatch = s.label.match(/— (.+?) \(\d+ min\)$/)
+        return { time: s.time, area: areaMatch?.[1] ?? null, duration: s.duration }
+      })
+      foundDates.push({ date: dateKey, label: `${dayName} ${dd}/${mm}`, slots })
+      if (foundDates.length >= 14) break
     }
   }
   return foundDates
@@ -381,23 +393,44 @@ async function fetchAvailableSlots(dateKey: string, professionalName: string | n
   }))
 }
 
-// Pre-fetch available dates for ALL active professionals (summary for AI)
+// Pre-fetch available dates AND slots for ALL active professionals (summary for AI)
 async function fetchAllAvailability(orgId?: string): Promise<Record<string, string[]>> {
   const allProfs = await fetchProfessionals(orgId)
-  // Process in small batches — fetch 2 weeks per professional name
-  const today = new Date()
   const result: Record<string, string[]> = {}
 
   for (const profLabel of allProfs) {
-    // Extract just the name (without specialty)
-    const profName = profLabel.replace(/\s*\(.*\)\s*$/, '')
     try {
       const dates = await fetchAvailableDates(profLabel, orgId)
       if (dates.length > 0) {
-        result[profLabel] = dates.map(d => d.label)
+        // Format each day's availability. Two cases for ANY professional:
+        // Caso 1: at least one slot has area → group by area, filter nulls
+        //   "Vie 29/5 → Extraccion: 08:00 | Implantes: 09:00"
+        // Caso 2: ALL slots are "Solo duración" → just list times
+        //   "Jue 21/5 → 09:00, 09:30, 10:00"
+        const lines: string[] = []
+        for (const d of dates) {
+          const withArea = d.slots.filter(s => s.area !== null)
+          if (withArea.length > 0) {
+            // Caso 1: agrupar por área (solo slots con área)
+            const byArea = new Map<string, string[]>()
+            for (const s of withArea) {
+              const area = s.area!
+              if (!byArea.has(area)) byArea.set(area, [])
+              byArea.get(area)!.push(s.time)
+            }
+            const areaParts = Array.from(byArea.entries()).map(([area, times]) => `${area}: ${times.join(', ')}`)
+            lines.push(`${d.label} → ${areaParts.join(' | ')}`)
+          } else {
+            // Caso 2: sin áreas, mostrar solo horarios
+            const times = d.slots.map(s => s.time)
+            lines.push(`${d.label} → ${times.join(', ')}`)
+          }
+        }
+        result[profLabel] = lines
       }
     } catch { /* skip if no schedule */ }
   }
+  console.log('[Agent] allAvailability context:', JSON.stringify(result, null, 2))
   return result
 }
 
@@ -453,16 +486,26 @@ async function saveAppointmentFromBot(ctx: BotContext, orgId?: string): Promise<
     .eq('phone', cleanPhone)
     .eq('organization_id', orgId)
     .maybeSingle()
+  const patientName = ctx.patientName?.trim() ?? ''
+  const patientParts = patientName.split(/\s+/)
+  const firstName = patientParts[0] || 'Paciente'
+  const lastName = patientParts.slice(1).join(' ') || 'WhatsApp'
+  const patientDni = ctx.pendingDni ?? null
+  const patientPhone = cleanPhone
+
   if (existing) {
     patientId = existing.id
+    // Update existing patient with latest data from agent
+    await sb.from('patients')
+      .update({ first_name: firstName, last_name: lastName, dni: patientDni })
+      .eq('id', patientId)
   } else {
-    const parts = (ctx.patientName ?? 'Paciente').trim().split(/\s+/)
     const { data: created } = await sb.from('patients').insert({
       organization_id: orgId,
-      first_name: parts[0] ?? 'Paciente',
-      last_name: parts.slice(1).join(' ') || 'WhatsApp',
-      phone: cleanPhone,
-      dni: ctx.pendingDni ?? null,
+      first_name: firstName,
+      last_name: lastName,
+      phone: patientPhone,
+      dni: patientDni,
     }).select('id').single()
     if (!created) { console.error('[Bot] Failed to create patient') ; return }
     patientId = created.id
@@ -493,8 +536,8 @@ async function saveAppointmentFromBot(ctx: BotContext, orgId?: string): Promise<
   if (ctx.selectedDate) {
     const [dd, mm, yy] = ctx.selectedDate.split('/').map(Number)
     const dow = new Date(yy, mm - 1, dd, 12).getDay()
-    const { templates } = await getScheduleForProfessional(professionalId)
-    const dayTemplate = templates.find(t => t.day_of_week === dow)
+    const { templates } = await getScheduleForProfessional(professionalId, ctx.selectedDate)
+    const dayTemplate = templates.find(t => t.day_of_week === toUiDow(dow))
     if (dayTemplate) slotDuration = dayTemplate.slot_duration || 30
   }
 
@@ -871,29 +914,40 @@ export async function POST(req: NextRequest) {
         if (a.type === 'book') {
           // Validate and execute booking
           if (a.date && a.time && a.professional && a.specialty) {
-            // Set the booking context for saveAppointmentFromBot
-            const bookCtx = { ...newContext,
-              selectedDate: a.date,
-              selectedTime: a.time,
-              selectedProfessional: a.professional,
-              selectedSpecialty: a.specialty,
-              selectedAppointmentId: null,
-              ...(a.patientName ? { patientName: a.patientName } : {}),
-              ...(a.patientDni ? { pendingDni: a.patientDni } : {}),
+            // Validate patientName (at least 2 words) and patientDni (7-8 digits)
+            const nameValid = a.patientName && typeof a.patientName === 'string' && a.patientName.trim().split(/\s+/).length >= 2
+            const dniValid = a.patientDni && typeof a.patientDni === 'string' && /^\d{7,8}$/.test(a.patientDni.trim())
+            if (!nameValid || !dniValid) {
+              console.log('[Agent] Book rejected — invalid patient data:', { name: a.patientName, dni: a.patientDni })
+              aiText = 'Antes de confirmar, ¿me decís tu nombre completo y DNI? 😊'
+            } else {
+              console.log('[Agent] Full action JSON:', JSON.stringify(a))
+              const bookCtx = { ...newContext,
+                selectedDate: a.date,
+                selectedTime: a.time,
+                selectedProfessional: a.professional,
+                selectedSpecialty: a.specialty,
+                selectedAppointmentId: null,
+                patientName: a.patientName ?? null,
+                pendingDni: a.patientDni ?? null,
+              }
+              try {
+                await saveAppointmentFromBot(bookCtx, orgId)
+                newContext.state = 'booking_done'
+              } catch (err) { console.error('[Agent] Book error:', err) }
             }
-            try {
-              await saveAppointmentFromBot(bookCtx, orgId)
-              newContext.state = 'booking_done'
-            } catch (err) { console.error('[Agent] Book error:', err) }
           } else {
             console.error('[Agent] Incomplete book action:', a)
           }
         } else if (a.type === 'cancel') {
-          if (a.appointmentId) {
-            const cancelCtx = { ...newContext, selectedAppointmentId: a.appointmentId }
-            try {
-              await cancelAppointmentFromBot(cancelCtx)
-            } catch (err) { console.error('[Agent] Cancel error:', err) }
+          const idsToCancel: string[] = a.appointmentIds ?? (a.appointmentId ? [a.appointmentId] : [])
+          if (idsToCancel.length > 0) {
+            for (const id of idsToCancel) {
+              const cancelCtx = { ...newContext, selectedAppointmentId: id }
+              try {
+                await cancelAppointmentFromBot(cancelCtx)
+              } catch (err) { console.error('[Agent] Cancel error for', id, ':', err) }
+            }
           }
         }
       }

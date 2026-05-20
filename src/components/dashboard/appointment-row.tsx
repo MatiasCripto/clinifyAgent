@@ -43,6 +43,7 @@ export function AppointmentRow({ appointment, showDate, onClick }: AppointmentRo
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-[var(--foreground)] truncate">
           {patient ? `${patient.first_name} ${patient.last_name}` : 'Paciente desconocido'}
+          {patient?.dni && <span className="text-[11px] text-[var(--subtle)] ml-1.5">DNI {patient.dni}</span>}
         </p>
         <p className="text-[11px] truncate" style={{ color: professional?.color ?? '#94a3b8' }}>
           {professional?.full_name ?? 'Sin profesional'}
