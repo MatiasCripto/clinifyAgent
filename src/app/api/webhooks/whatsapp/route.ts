@@ -637,9 +637,18 @@ function getFallbackResponse(ctx: BotContext): string | null {
   return fn ? fn(ctx) : null
 }
 
+import { checkRateLimit } from '@/lib/utils/rate-limit'
+
 // ── Main webhook handler ──────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 30 req/min per IP
+  const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown'
+  const rl = checkRateLimit(`webhook:${ip}`, { windowMs: 60_000, maxHits: 30 })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const secret = process.env.WEBHOOK_SECRET
   if (secret && req.headers.get('x-webhook-secret') !== secret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

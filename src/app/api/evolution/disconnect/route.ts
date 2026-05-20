@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server-admin'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 const BASE_URL = process.env.EVOLUTION_API_URL ?? 'http://localhost:8080'
 const API_KEY  = process.env.EVOLUTION_API_KEY  ?? ''
@@ -28,6 +29,10 @@ async function requireAdminRole(): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? 'unknown'
+  const rl = checkRateLimit(`evolution:disconnect:${ip}`, { windowMs: 60_000, maxHits: 10 })
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+
   if (!(await requireAdminRole())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

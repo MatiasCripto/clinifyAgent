@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server-admin'
 import { sendText } from '@/lib/bot/evolution-client'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 export async function POST(req: NextRequest) {
   // Auth check
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest) {
   if (!profile || !['superadmin', 'owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+
+  // Rate limit: 10 req/min per user
+  const rl = checkRateLimit(`bot:send:${user.id}`, { windowMs: 60_000, maxHits: 10 })
+  if (!rl.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
 
   const { phone, message } = await req.json()
 
