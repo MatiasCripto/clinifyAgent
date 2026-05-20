@@ -17,7 +17,29 @@ import type { AiContext } from '@/lib/bot/ai-chat'
 
 // ── In-memory context cache ────────────────────────────────────
 
+const CTX_MAX_ENTRIES = 500
+const CTX_TTL_MS = 60 * 60 * 1000 // 1 hour
 const ctxMap = new Map<string, BotContext>()
+
+function evictStaleContexts() {
+  if (ctxMap.size <= CTX_MAX_ENTRIES) return
+  const now = Date.now()
+  const toDelete: string[] = []
+  for (const [phone, ctx] of ctxMap) {
+    const age = ctx.lastMessageAt ? now - new Date(ctx.lastMessageAt).getTime() : Infinity
+    if (age > CTX_TTL_MS) toDelete.push(phone)
+  }
+  for (const phone of toDelete) ctxMap.delete(phone)
+  // If still over limit, evict oldest
+  if (ctxMap.size > CTX_MAX_ENTRIES) {
+    const sorted = [...ctxMap.entries()].sort(
+      (a, b) => (a[1].lastMessageAt ?? '').localeCompare(b[1].lastMessageAt ?? '')
+    )
+    for (const [phone] of sorted.slice(0, ctxMap.size - CTX_MAX_ENTRIES)) {
+      ctxMap.delete(phone)
+    }
+  }
+}
 
 async function loadContext(phone: string): Promise<BotContext | null> {
   // Always check Supabase first to survive server restarts / hot reload
@@ -92,13 +114,24 @@ function formatDateKey(date: Date): string {
 }
 
 // ── Specialty-professional mapping (JS-side join — no Supabase embedded joins) ─
+// Cached per-request to avoid 4-6 repeated queries for the same data.
+
+let _specialtyMap: Map<string, string> | null = null
+let _specialtyMapPromise: Promise<Map<string, string>> | null = null
 
 async function getSpecialtyMap(): Promise<Map<string, string>> {
-  const sb = createServiceClient()
-  const { data: specs } = await sb.from('specialties').select('id, name')
-  const map = new Map<string, string>()
-  for (const s of (specs ?? [])) map.set(s.id, s.name)
-  return map
+  if (_specialtyMap) return _specialtyMap
+  if (!_specialtyMapPromise) {
+    _specialtyMapPromise = (async () => {
+      const sb = createServiceClient()
+      const { data: specs } = await sb.from('specialties').select('id, name')
+      const map = new Map<string, string>()
+      for (const s of (specs ?? [])) map.set(s.id, s.name)
+      return map
+    })()
+  }
+  _specialtyMap = await _specialtyMapPromise
+  return _specialtyMap
 }
 
 async function fetchProfessionals(orgId?: string): Promise<string[]> {
@@ -393,7 +426,180 @@ async function fetchAvailableSlots(dateKey: string, professionalName: string | n
   }))
 }
 
-// Pre-fetch available dates AND slots for ALL active professionals (summary for AI)
+// ── Batched availability (replaces N+1 per-professional loop) ────
+
+async function fetchAllAvailabilityBatched(orgId?: string): Promise<Record<string, string[]>> {
+  const sb = createServiceClient()
+  const today = new Date()
+  const todayKey = formatDateKey(today)
+  const weekStart = getWeekStartDate(todayKey)
+  const endDate = new Date(today)
+  endDate.setDate(today.getDate() + 14)
+  const endISO = endDate.toISOString()
+
+  // 1. Fetch active professionals
+  let profQ = sb.from('professionals')
+    .select('id, full_name, specialty_id')
+    .eq('is_active', true)
+  if (orgId) profQ = profQ.eq('organization_id', orgId)
+  const { data: profs } = await profQ
+  if (!profs || profs.length === 0) return {}
+
+  const profIds = profs.map((p: { id: string }) => p.id)
+
+  // 2. Fetch specialties map (cached)
+  const specMap = await getSpecialtyMap()
+
+  // 3. Fetch all weekly schedules for this week in one query
+  const { data: schedules } = await sb
+    .from('weekly_schedules')
+    .select('professional_id, schedule')
+    .eq('week_start_date', weekStart)
+    .in('professional_id', profIds)
+
+  // 4. Fetch all appointments for next 14 days in one query
+  const { data: appointments } = await sb
+    .from('appointments')
+    .select('professional_id, starts_at')
+    .in('professional_id', profIds)
+    .gte('starts_at', today.toISOString())
+    .lte('starts_at', endISO)
+    .not('status', 'eq', 'cancelled')
+
+  // 5. Fetch service areas in one query
+  const { data: areas } = await sb
+    .from('service_areas')
+    .select('id, professional_id, name, duration_min')
+    .in('professional_id', profIds)
+    .eq('is_active', true)
+    .order('name')
+
+  // Build index: professionalId → { day_of_week → { slots: [{ area, duration }], start, end, slot_duration } }
+  const profScheduleIndex = new Map<string, Record<number, { start: string; end: string; slotDuration: number; slots: Array<{ areaName: string | null; duration: number }> }>>()
+
+  for (const prof of profs) {
+    profScheduleIndex.set(prof.id, {})
+  }
+
+  // Parse schedules
+  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  for (const row of (schedules ?? [])) {
+    const schedule = (row.schedule ?? {}) as Record<string, { is_working?: boolean; start_time?: string; end_time?: string; slot_duration?: number; slots?: Array<{ area_id?: string; duration: number }> }>
+    const dayMap: Record<number, { start: string; end: string; slotDuration: number; slots: Array<{ areaName: string | null; duration: number }> }> = {}
+
+    for (const [key, day] of Object.entries(schedule)) {
+      if (!day.is_working || !day.start_time || !day.end_time) continue
+      const dow = parseInt(key)
+      const daySlots = (day.slots ?? []).map(s => ({
+        areaName: s.area_id ? ((areas ?? []).find(a => a.id === s.area_id)?.name ?? null) : null,
+        duration: s.duration || day.slot_duration || 30,
+      }))
+      dayMap[dow] = { start: day.start_time, end: day.end_time, slotDuration: day.slot_duration || 30, slots: daySlots }
+    }
+
+    // Fallback: legacy availability_templates
+    if (Object.keys(dayMap).length === 0) {
+      const { data: legacy } = await sb
+        .from('availability_templates')
+        .select('day_of_week, start_time, end_time, slot_duration')
+        .eq('professional_id', row.professional_id)
+        .eq('is_active', true)
+      for (const t of (legacy ?? [])) {
+        dayMap[t.day_of_week] = { start: t.start_time, end: t.end_time, slotDuration: t.slot_duration || 30, slots: [] }
+      }
+    }
+
+    profScheduleIndex.set(row.professional_id, dayMap)
+  }
+
+  // Build taken slots index: professionalId → Set<"dateKey|timeKey">
+  const takenIndex = new Map<string, Set<string>>()
+  for (const a of (appointments ?? [])) {
+    const pid = a.professional_id as string
+    if (!takenIndex.has(pid)) takenIndex.set(pid, new Set())
+    const d = new Date(a.starts_at as string)
+    const dateKey = formatDateKey(d)
+    const timeKey = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    takenIndex.get(pid)!.add(`${dateKey}|${timeKey}`)
+  }
+
+  // Compute availability for next 14 days
+  const result: Record<string, string[]> = {}
+
+  for (const prof of profs) {
+    const specName = specMap.get(prof.specialty_id as string) ?? ''
+    const profLabel = specName ? `${prof.full_name} (${specName})` : (prof.full_name as string)
+    const dayMap = profScheduleIndex.get(prof.id)
+    if (!dayMap || Object.keys(dayMap).length === 0) continue
+
+    const taken = takenIndex.get(prof.id) ?? new Set()
+    const profLines: string[] = []
+
+    for (let i = 0; i <= 14; i++) {
+      const d = new Date(today)
+      d.setDate(today.getDate() + i)
+      const dateKey = formatDateKey(d)
+      const jsDow = d.getDay()
+      const uiDow = jsDow === 0 ? 6 : jsDow - 1
+      const dayConfig = dayMap[uiDow]
+      if (!dayConfig) continue
+
+      const daySlots = dayConfig.slots
+      if (daySlots && daySlots.length > 0) {
+        // Slot-based schedule
+        const [sh, sm] = dayConfig.start.split(':').map(Number)
+        let cursorMin = sh * 60 + sm
+        const withArea: Map<string, string[]> = new Map()
+        const noAreaTimes: string[] = []
+
+        for (const slot of daySlots) {
+          const hh = String(Math.floor(cursorMin / 60)).padStart(2, '0')
+          const mm = String(cursorMin % 60).padStart(2, '0')
+          const time = `${hh}:${mm}`
+          if (!taken.has(`${dateKey}|${time}`)) {
+            if (slot.areaName) {
+              if (!withArea.has(slot.areaName)) withArea.set(slot.areaName, [])
+              withArea.get(slot.areaName)!.push(time)
+            } else {
+              noAreaTimes.push(time)
+            }
+          }
+          cursorMin += slot.duration
+        }
+
+        if (withArea.size > 0) {
+          const areaParts = Array.from(withArea.entries()).map(([area, times]) => `${area}: ${times.join(', ')}`)
+          profLines.push(`${dayNames[jsDow]} ${dateKey.split('/').slice(0, 2).join('/')} → ${areaParts.join(' | ')}`)
+        } else if (noAreaTimes.length > 0) {
+          profLines.push(`${dayNames[jsDow]} ${dateKey.split('/').slice(0, 2).join('/')} → ${noAreaTimes.join(', ')}`)
+        }
+      } else {
+        // Uniform slot duration
+        const [sh, sm] = dayConfig.start.split(':').map(Number)
+        const [eh, em] = dayConfig.end.split(':').map(Number)
+        const step = dayConfig.slotDuration
+        const times: string[] = []
+        for (let min = sh * 60 + sm; min + step <= eh * 60 + em; min += step) {
+          const hh = String(Math.floor(min / 60)).padStart(2, '0')
+          const mm = String(min % 60).padStart(2, '0')
+          const time = `${hh}:${mm}`
+          if (!taken.has(`${dateKey}|${time}`)) times.push(time)
+        }
+        if (times.length > 0) {
+          profLines.push(`${dayNames[jsDow]} ${dateKey.split('/').slice(0, 2).join('/')} → ${times.join(', ')}`)
+        }
+      }
+    }
+
+    if (profLines.length > 0) result[profLabel] = profLines
+  }
+
+  console.log('[Agent] allAvailability (batched):', JSON.stringify(result, null, 2))
+  return result
+}
+
+// ── Legacy availability (kept for backward compat, not used in main flow) ──
+
 async function fetchAllAvailability(orgId?: string): Promise<Record<string, string[]>> {
   const allProfs = await fetchProfessionals(orgId)
   const result: Record<string, string[]> = {}
@@ -562,10 +768,16 @@ async function saveAppointmentFromBot(ctx: BotContext, orgId?: string): Promise<
     notes: null, cancellation_reason: null, reminder_sent: false, nps_sent: false, google_event_id: null,
   })
   if (insertError) {
+    // Unique violation (23505) = double booking race condition
+    if (insertError.code === '23505') {
+      const err = new Error('SLOT_ALREADY_TAKEN')
+      ;(err as unknown as Record<string, unknown>).code = '23505'
+      throw err
+    }
     console.error('[Bot] Failed to insert appointment:', insertError)
-  } else {
-    console.log('[Bot] Appointment saved successfully')
+    throw new Error(insertError.message)
   }
+  console.log('[Bot] Appointment saved successfully')
 }
 
 async function cancelAppointmentFromBot(ctx: BotContext): Promise<void> {
@@ -679,6 +891,9 @@ export async function POST(req: NextRequest) {
   const name  = data.pushName
 
   if (!phone || !text) return NextResponse.json({ ok: true })
+
+  // ── Memory leak prevention ──────────────────────────────────
+  evictStaleContexts()
 
   // ── Load context ────────────────────────────────────────────
   let ctx = (await loadContext(phone)) ?? createInitialContext(phone)
@@ -884,7 +1099,7 @@ export async function POST(req: NextRequest) {
 
     // Pre-fetch ALL availability for ALL professionals so the AI
     // always has real data to answer naturally.
-    const allAvailability = await fetchAllAvailability(orgId)
+    const allAvailability = await fetchAllAvailabilityBatched(orgId)
 
     // Build AI context — ALWAYS include all data. The AI is smart enough
     // to use only what's relevant. No state-based hiding.
@@ -943,7 +1158,16 @@ export async function POST(req: NextRequest) {
               try {
                 await saveAppointmentFromBot(bookCtx, orgId)
                 newContext.state = 'booking_done'
-              } catch (err) { console.error('[Agent] Book error:', err) }
+              } catch (err) {
+                console.error('[Agent] Book error:', err)
+                if ((err as { code?: string }).code === '23505') {
+                  // Slot was taken by another patient between check and insert
+                  aiText = '¡Uy! Ese horario ya lo tomó otra persona. ¿Querés que te muestre los que quedan disponibles? 😊'
+                  newContext.state = 'booking_date'
+                  newContext.selectedDate = null
+                  newContext.selectedTime = null
+                }
+              }
             }
           } else {
             console.error('[Agent] Incomplete book action:', a)
