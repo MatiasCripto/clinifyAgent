@@ -25,7 +25,7 @@ const NAV = [
 ]
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
-  const { authUser, loading } = useAuth()
+  const { authUser, loading, signOut } = useAuth()
   const router   = useRouter()
   const pathname = usePathname()
   const isLoginPage = pathname === '/superadmin/login'
