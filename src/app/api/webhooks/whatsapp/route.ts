@@ -1048,7 +1048,7 @@ export async function POST(req: NextRequest) {
           professionalSchedule = weeklyInfo
           const areas = areasList as Array<{ name: string; duration_min: number }> | null
           if (areas && areas.length > 0) {
-            professionalAreas = areas.map((a: { name: string; duration_min: number }) => `${a.name} (${a.duration_min} min)`).join(', ')
+            professionalAreas = areas.map((a: { name: string }) => a.name).join(', ')
           }
         }
       } catch { /* ignore */ }
@@ -1138,12 +1138,23 @@ export async function POST(req: NextRequest) {
         if (a.type === 'book') {
           // Validate and execute booking
           if (a.date && a.time && a.professional && a.specialty) {
-            // Validate patientName (at least 2 words) and patientDni (7-8 digits)
-            const nameValid = a.patientName && typeof a.patientName === 'string' && a.patientName.trim().split(/\s+/).length >= 2
-            const dniValid = a.patientDni && typeof a.patientDni === 'string' && /^\d{7,8}$/.test(a.patientDni.trim())
-            if (!nameValid || !dniValid) {
-              console.log('[Agent] Book rejected — invalid patient data:', { name: a.patientName, dni: a.patientDni })
-              aiText = 'Antes de confirmar, ¿me decís tu nombre completo y DNI? 😊'
+            // Auto-fill patient data from context if known patient
+            const ctxName = newContext.patientName?.trim()
+            const ctxDni = newContext.pendingDni
+            const effectiveName = a.patientName || ctxName || null
+            const effectiveDni = a.patientDni || ctxDni || null
+
+            // Validate: name must be 2+ words. DNI required ONLY for unknown patients.
+            const nameValid = effectiveName && typeof effectiveName === 'string' && effectiveName.split(/\s+/).length >= 2
+            const dniValid = effectiveDni && typeof effectiveDni === 'string' && /^\d{7,8}$/.test(effectiveDni.trim())
+            const isKnown = newContext.isKnownPatient && newContext.patientId
+
+            if (!nameValid) {
+              console.log('[Agent] Book rejected — invalid patient name:', { name: effectiveName })
+              aiText = 'Antes de confirmar, ¿me decís tu nombre completo? 😊'
+            } else if (!isKnown && !dniValid) {
+              console.log('[Agent] Book rejected — missing DNI for new patient:', { dni: effectiveDni })
+              aiText = 'Antes de confirmar, necesito tu DNI. ¿Me lo pasás? 😊'
             } else {
               console.log('[Agent] Full action JSON:', JSON.stringify(a))
               const bookCtx = { ...newContext,

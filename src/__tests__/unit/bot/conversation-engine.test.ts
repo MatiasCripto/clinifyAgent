@@ -199,6 +199,46 @@ describe('processMessage', () => {
     expect(newContext.state).toBe('identify_patient')
   })
 
+  it('known patient skipping ask_dni: booking_confirm with confirmation advances', () => {
+    // Bug fix: known patients (~isKnownPatient + patientName) should confirm without re-asking DNI
+    const { newContext, responses } = processMessage(
+      'sí confirmo',
+      ctx({
+        state: 'booking_confirm',
+        isKnownPatient: true,
+        patientName: 'Juan Pérez',
+        patientId: 'p-1',
+        pendingDni: null, // known patient never went through ask_dni
+        selectedSpecialty: 'Odontologia',
+        selectedProfessional: 'Dr. Perez (Odontologia)',
+        selectedDate: '20/05/2026',
+        selectedTime: '10:30',
+      })
+    )
+    // Should advance to booking_done without re-asking DNI
+    expect(newContext.state).toBe('booking_done')
+    expect(responses).toContain(AI_MARKER)
+  })
+
+  it('known patient in booking_confirm with confirmation word does not loop', () => {
+    // Regression: known patient says "sí" and should NOT go back to ask_dni
+    const { newContext } = processMessage(
+      'dale confirmo',
+      ctx({
+        state: 'booking_confirm',
+        isKnownPatient: true,
+        patientName: 'María Gómez',
+        patientId: 'p-2',
+        pendingDni: '12345678', // has DNI from context
+        selectedSpecialty: 'Kinesiologia',
+        selectedProfessional: 'Lic. Gomez (Kinesiologia)',
+        selectedDate: '22/05/2026',
+        selectedTime: '14:00',
+      })
+    )
+    expect(newContext.state).toBe('booking_done')
+  })
+
   it('cancel_select with appointment id selects it', () => {
     const { newContext } = processMessage(
       '1',

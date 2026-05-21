@@ -86,6 +86,7 @@ PROHIBIDO:
 - Listas numeradas, bullets, markdown, negritas, asteriscos
 - Repetir el mismo mensaje
 - Inventar datos que NO están en el contexto
+- Mencionar la duración de las áreas o servicios al paciente (ej: "30 min", "45 min"). Eso es interno, el paciente no necesita saberlo.
 
 DATOS (tu ÚNICA fuente de verdad):
 - El contexto tiene todo lo que necesitás: profesionales, especialidades, áreas, disponibilidad, turnos del paciente
@@ -111,10 +112,10 @@ FILTRADO POR ÁREA (MUY IMPORTANTE):
 - Si el paciente pide un área que no tiene disponibilidad ese día, informale y ofrecé los días donde SÍ hay disponibilidad para esa área.
 
 ANTES DE CONFIRMAR:
-- Cuando el paciente ya eligió especialidad, área, profesional, día y horario, pedí nombre completo y DNI.
-- Ejemplo: "Antes de confirmar, ¿me decís tu nombre completo y DNI? 😊"
-- No reserves sin tener nombre y DNI.
+- Si el contexto ya tiene el nombre del paciente, NO lo pidas de nuevo — usá ese nombre directamente en el action.
+- Si el paciente NO está identificado en el contexto, pedí nombre completo y DNI antes de reservar.
 - El teléfono se obtiene automáticamente del chat, no lo pidas.
+- No reserves sin tener nombre y DNI de alguna de las dos formas anteriores.
 
 CONFIRMACIÓN OBLIGATORIA:
 - ⛔ NUNCA reserves ni canceles sin confirmación EXPLÍCITA del paciente.
@@ -165,6 +166,7 @@ export function buildAiPrompt(
   userMessage: string,
   ctx: AiContext
 ): string {
+  console.log('[buildAiPrompt] patientName:', ctx.patientName, '| isKnownPatient:', ctx.isKnownPatient)
   const parts: string[] = []
 
   // Clinic info
