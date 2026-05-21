@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils/cn'
 import {
   LayoutDashboard, CalendarDays, Clock, Users,
   Stethoscope, MessageSquare, BarChart3, Settings,
-  LogOut, Moon, Sun, Receipt, CheckCircle2,
+  LogOut, Moon, Sun, Receipt, CheckCircle2, Bot,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/professionals',  label: 'Profesionales', icon: Stethoscope },
   { href: '/messages',       label: 'WhatsApp Bot',  icon: MessageSquare },
   { href: '/billing',        label: 'Facturación',   icon: Receipt },
+  { href: '/automations',    label: 'Automatización', icon: Bot },
   { href: '/analytics',      label: 'Analytics',     icon: BarChart3 },
   { href: '/settings',       label: 'Configuración', icon: Settings },
 ]
