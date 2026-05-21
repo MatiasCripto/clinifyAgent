@@ -347,9 +347,9 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
             <div className="flex items-center gap-3">
               <Avatar name={fullName} size="lg" />
               <div>
-                <p className="text-[13px] text-[var(--subtle)]">{p.phone}{p.email ? ` · ${p.email}` : ''}</p>
-                {p.date_of_birth && <p className="text-[11px] text-[var(--subtle)]">Nac: {formatDate(p.date_of_birth)}</p>}
-                {p.dni && <p className="text-[11px] text-[var(--subtle)]">DNI: {p.dni}</p>}
+                <p className="text-[13px] text-[var(--subtle)]">{p!.phone}{p!.email ? ` · ${p!.email}` : ''}</p>
+                {p!.date_of_birth && <p className="text-[11px] text-[var(--subtle)]">Nac: {formatDate(p!.date_of_birth)}</p>}
+                {p!.dni && <p className="text-[11px] text-[var(--subtle)]">DNI: {p!.dni}</p>}
               </div>
             </div>
             <div className="flex gap-2 flex-shrink-0">
