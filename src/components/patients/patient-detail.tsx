@@ -400,7 +400,7 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
           {/* ── GENERAL tab ─────────────────────────────────── */}
           {tab === 'general' && (
             <>
-              {p.notes && (
+              {p?.notes && (
                 <div className="mb-4 px-4 py-3 rounded-[10px] bg-[var(--warning-bg)] border border-amber-200">
                   <p className="text-[12px] text-amber-800 font-medium">⚠ {p.notes}</p>
                 </div>
