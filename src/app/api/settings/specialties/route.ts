@@ -35,7 +35,19 @@ export async function GET() {
     .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+
+  // Deduplicate by name — prefer default entries (they have artifact_type)
+  const seen = new Map<string, Record<string, unknown>>()
+  for (const s of (data ?? [])) {
+    const name = s.name as string
+    const existing = seen.get(name)
+    // Keep default over custom, or first one if both are same type
+    if (!existing || (s.is_default && !existing.is_default)) {
+      seen.set(name, s as unknown as Record<string, unknown>)
+    }
+  }
+
+  return NextResponse.json(Array.from(seen.values()))
 }
 
 // POST — create custom specialty for the org
