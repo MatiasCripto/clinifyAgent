@@ -979,6 +979,25 @@ export async function POST(req: NextRequest) {
   else ctx = { ...ctx, professionals: undefined }
 
   // ── Process through state machine ───────────────────────────
+  // Human takeover check — if conversation is paused by human, skip agent
+  if (orgId) {
+    const { data: conv } = await sb.from('wa_conversations')
+      .select('human_takeover, id')
+      .eq('phone', phone)
+      .maybeSingle()
+    if (conv?.human_takeover === true) {
+      try {
+        await sb.from('wa_messages').insert({
+          conversation_id: conv.id,
+          direction: 'inbound',
+          content: text,
+          created_at: new Date().toISOString(),
+        })
+      } catch { /* non-critical */ }
+      return NextResponse.json({ ok: true, human_takeover: true })
+    }
+  }
+
   const { newContext, responses, shouldEndSession } = processMessage(text, ctx, name)
 
   // ── Handle data-fetch markers ───────────────────────────────
@@ -1193,6 +1212,19 @@ export async function POST(req: NextRequest) {
               } catch (err) { console.error('[Agent] Cancel error for', id, ':', err) }
             }
           }
+        } else if (a.type === 'human_handoff') {
+          // Pause agent for this conversation, enable human takeover
+          try {
+            await sb.from('wa_conversations')
+              .update({
+                human_takeover: true,
+                human_takeover_at: new Date().toISOString(),
+                human_takeover_reason: a.reason ?? 'Derivado por el agente',
+                human_released_at: null,
+              })
+              .eq('phone', phone)
+            console.log('[Agent] Human handoff activated for', phone)
+          } catch (err) { console.error('[Agent] Human handoff error:', err) }
         }
       }
     } else {

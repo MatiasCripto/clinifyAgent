@@ -57,7 +57,7 @@ export interface AgentResponse {
 }
 
 export interface AgentAction {
-  type: 'book' | 'cancel'
+  type: 'book' | 'cancel' | 'human_handoff'
   // For book:
   specialty?: string
   professional?: string
@@ -69,6 +69,8 @@ export interface AgentAction {
   // For cancel:
   appointmentId?: string     // deprecated — kept for backward compat
   appointmentIds?: string[]  // array of appointment IDs to cancel
+  // For human_handoff:
+  reason?: string
 }
 
 // ── Agent System Prompt ───────────────────────────────────────
@@ -127,6 +129,15 @@ CANCELACIONES:
 - Si el paciente quiere cancelar, mostrále sus turnos activos y preguntá cuál quiere cancelar.
 - Confirmá antes de cancelar, igual que con las reservas.
 - Solo ponés action="cancel" cuando el paciente YA confirmó explícitamente.
+
+DERIVACIÓN A HUMANO:
+- Si el paciente dice "quiero hablar con alguien", "urgencia", "emergencia", "queja", "no me entendés", o muestra frustración clara → respondé con action type "human_handoff" y message: "Entendido, te conecto con alguien del equipo ahora mismo. En breve te contactan 😊"
+- Si después de 3 intentos no pudiste resolver su consulta → derivá a humano.
+- Ejemplo de JSON para este caso:
+{
+  "message": "Entendido, te conecto con alguien del equipo ahora mismo. En breve te contactan 😊",
+  "action": { "type": "human_handoff", "reason": "Paciente solicitó atención humana" }
+}
 
 RESPONDÉ SIEMPRE EN JSON:
 {
