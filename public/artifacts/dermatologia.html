@@ -1,0 +1,167 @@
+
+<h2 class="sr-only">Mapa corporal interactivo para dermatología con zonas seleccionables y registro de lesiones</h2>
+<style>
+.body-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
+.body-views{display:flex;gap:24px;justify-content:center;margin-bottom:12px}
+.view-label{font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-bottom:4px}
+.body-svg{width:120px}
+.zone{cursor:pointer;transition:opacity 0.15s}
+.zone:hover{opacity:0.7}
+.legend-derm{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+.derm-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
+.lesion-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:320px}
+.lesion-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all 0.15s}
+.lesion-btn:hover{background:var(--color-background-secondary)}
+.lesion-btn.active{color:#fff;border-color:transparent}
+.zones-list{margin-top:10px;width:100%;max-width:320px}
+.zone-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.zone-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+</style>
+
+<div class="body-wrap">
+  <div class="legend-derm">
+    <div class="leg-item"><div class="leg-dot" style="background:#D3D1C7"></div>Sin lesión</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Eritema</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Pápula</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F4C0D1"></div>Mancha</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#CCC;border:1.5px solid #A32D2D"></div>Úlcera</div>
+  </div>
+
+  <div class="body-views">
+    <div>
+      <div class="view-label">Anterior</div>
+      <svg class="body-svg" viewBox="0 0 120 280" xmlns="http://www.w3.org/2000/svg">
+        <circle id="f-head" class="zone" cx="60" cy="22" r="18" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Cabeza')"/>
+        <rect id="f-neck" class="zone" x="52" y="40" width="16" height="12" rx="2" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Cuello')"/>
+        <rect id="f-torso" class="zone" x="30" y="52" width="60" height="70" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Torso anterior')"/>
+        <rect id="f-larm" class="zone" x="8" y="52" width="20" height="60" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Brazo izquierdo')"/>
+        <rect id="f-rarm" class="zone" x="92" y="52" width="20" height="60" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Brazo derecho')"/>
+        <rect id="f-lhand" class="zone" x="6" y="114" width="22" height="16" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Mano izquierda')"/>
+        <rect id="f-rhand" class="zone" x="92" y="114" width="22" height="16" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Mano derecha')"/>
+        <rect id="f-pelvis" class="zone" x="30" y="124" width="60" height="30" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pelvis')"/>
+        <rect id="f-lleg" class="zone" x="30" y="156" width="26" height="80" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pierna izquierda')"/>
+        <rect id="f-rleg" class="zone" x="64" y="156" width="26" height="80" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pierna derecha')"/>
+        <rect id="f-lfoot" class="zone" x="26" y="238" width="30" height="14" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pie izquierdo')"/>
+        <rect id="f-rfoot" class="zone" x="64" y="238" width="30" height="14" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pie derecho')"/>
+      </svg>
+    </div>
+    <div>
+      <div class="view-label">Posterior</div>
+      <svg class="body-svg" viewBox="0 0 120 280" xmlns="http://www.w3.org/2000/svg">
+        <circle id="b-head" class="zone" cx="60" cy="22" r="18" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Cabeza posterior')"/>
+        <rect id="b-neck" class="zone" x="52" y="40" width="16" height="12" rx="2" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Nuca')"/>
+        <rect id="b-back" class="zone" x="30" y="52" width="60" height="70" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Espalda')"/>
+        <rect id="b-larm" class="zone" x="8" y="52" width="20" height="60" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Hombro izquierdo')"/>
+        <rect id="b-rarm" class="zone" x="92" y="52" width="20" height="60" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Hombro derecho')"/>
+        <rect id="b-glut" class="zone" x="30" y="124" width="60" height="30" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Glúteos')"/>
+        <rect id="b-lleg" class="zone" x="30" y="156" width="26" height="80" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pantorrilla izquierda')"/>
+        <rect id="b-rleg" class="zone" x="64" y="156" width="26" height="80" rx="6" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Pantorrilla derecha')"/>
+        <rect id="b-lfoot" class="zone" x="26" y="238" width="30" height="14" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Talón izquierdo')"/>
+        <rect id="b-rfoot" class="zone" x="64" y="238" width="30" height="14" rx="4" fill="#D3D1C7" stroke="#888" stroke-width="1" onclick="selectZone('Talón derecho')"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="derm-info" id="derm-info">Tocá una zona del cuerpo para registrar una lesión</div>
+
+  <div class="lesion-btns" id="lesion-btns" style="display:none">
+    <button class="lesion-btn" data-type="eritema" data-color="#A32D2D" data-fill="#F7C1C1">Eritema</button>
+    <button class="lesion-btn" data-type="papula" data-color="#854F0B" data-fill="#FAC775">Pápula</button>
+    <button class="lesion-btn" data-type="mancha" data-color="#993556" data-fill="#F4C0D1">Mancha</button>
+    <button class="lesion-btn" data-type="ulcera" data-color="#A32D2D" data-fill="#D3D1C7">Úlcera</button>
+    <button class="lesion-btn" data-type="ninguna" data-color="#5F5E5A" data-fill="#D3D1C7">Sin lesión</button>
+  </div>
+
+  <div class="zones-list" id="zones-list"></div>
+</div>
+
+<script>
+const zoneData = {};
+let selZone = null;
+
+const LESION = {
+  eritema: {label:'Eritema', color:'#A32D2D', fill:'#F7C1C1'},
+  papula:  {label:'Pápula',  color:'#854F0B', fill:'#FAC775'},
+  mancha:  {label:'Mancha',  color:'#993556', fill:'#F4C0D1'},
+  ulcera:  {label:'Úlcera',  color:'#A32D2D', fill:'#D3D1C7'},
+  ninguna: {label:'Sin lesión', color:'#5F5E5A', fill:'#D3D1C7'},
+};
+
+const zoneToIds = {
+  'Cabeza': ['f-head'],
+  'Cuello': ['f-neck'],
+  'Torso anterior': ['f-torso'],
+  'Brazo izquierdo': ['f-larm'],
+  'Brazo derecho': ['f-rarm'],
+  'Mano izquierda': ['f-lhand'],
+  'Mano derecha': ['f-rhand'],
+  'Pelvis': ['f-pelvis'],
+  'Pierna izquierda': ['f-lleg'],
+  'Pierna derecha': ['f-rleg'],
+  'Pie izquierdo': ['f-lfoot'],
+  'Pie derecho': ['f-rfoot'],
+  'Cabeza posterior': ['b-head'],
+  'Nuca': ['b-neck'],
+  'Espalda': ['b-back'],
+  'Hombro izquierdo': ['b-larm'],
+  'Hombro derecho': ['b-rarm'],
+  'Glúteos': ['b-glut'],
+  'Pantorrilla izquierda': ['b-lleg'],
+  'Pantorrilla derecha': ['b-rleg'],
+  'Talón izquierdo': ['b-lfoot'],
+  'Talón derecho': ['b-rfoot'],
+};
+
+function selectZone(name) {
+  selZone = name;
+  const cur = zoneData[name];
+  const info = document.getElementById('derm-info');
+  info.innerHTML = cur
+    ? `<strong>${name}</strong> — <span style="color:${LESION[cur].color};font-weight:500">${LESION[cur].label}</span>`
+    : `<strong>${name}</strong> — Sin lesión registrada`;
+  
+  const btns = document.getElementById('lesion-btns');
+  btns.style.display = 'flex';
+  btns.querySelectorAll('.lesion-btn').forEach(b => {
+    const active = zoneData[name] === b.dataset.type;
+    b.className = 'lesion-btn' + (active ? ' active' : '');
+    b.style.background = active ? b.dataset.color : '';
+    b.style.borderColor = active ? b.dataset.color : '';
+    b.style.color = active ? '#fff' : '';
+  });
+}
+
+document.getElementById('lesion-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.lesion-btn');
+  if (!btn || !selZone) return;
+  const type = btn.dataset.type;
+  if (type === 'ninguna') {
+    delete zoneData[selZone];
+  } else {
+    zoneData[selZone] = type;
+  }
+  const ids = zoneToIds[selZone] || [];
+  const l = type === 'ninguna' ? LESION.ninguna : LESION[type];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('fill', l.fill);
+  });
+  selectZone(selZone);
+  renderList();
+});
+
+function renderList() {
+  const list = document.getElementById('zones-list');
+  const entries = Object.entries(zoneData);
+  if (!entries.length) { list.innerHTML = ''; return; }
+  list.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Lesiones registradas</div>' +
+    entries.map(([z, t]) => `
+      <div class="zone-row">
+        <span>${z}</span>
+        <span class="zone-badge" style="background:${LESION[t].color}">${LESION[t].label}</span>
+      </div>
+    `).join('');
+}
+</script>

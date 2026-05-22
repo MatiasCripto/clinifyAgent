@@ -9,9 +9,12 @@ import { computePatientScore } from '@/lib/utils/patient-scores'
 import { getComplianceLabel, getRfmConfig, getChurnConfig, formatDate, formatPct } from '@/lib/utils/formatters'
 import type { Patient, Appointment, NpsResponse } from '@/lib/types'
 import { cn } from '@/lib/utils/cn'
-import { Pencil, Trash2, Check, AlertTriangle, Plus, Upload, FileText, Image, Eye } from 'lucide-react'
+import { Pencil, Trash2, Check, AlertTriangle, Plus, Upload, FileText, Image, Eye, Stethoscope } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/hooks/use-auth'
+import { usePlan } from '@/lib/plans/use-plan'
+import { UpgradeGate } from '@/components/ui/upgrade-gate'
+import { ArtifactViewer } from './artifact-viewer'
 
 type PatientTab = 'general' | 'historial'
 
@@ -85,6 +88,10 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
     notes: '',
   })
   const [savingSession, setSavingSession] = useState(false)
+  const [artifactType, setArtifactType]   = useState<string | null>(null)
+  const [artifactData, setArtifactData]   = useState<Record<string, unknown> | null>(null)
+  const { hasAnalytics, plan } = usePlan()
+  const hasArtifacts = plan !== 'starter'
 
   // Documents state
   const [documents, setDocuments]             = useState<PatientDocument[]>([])
@@ -158,6 +165,7 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
         specialty: addSessionForm.specialty || null,
         area: addSessionForm.area || null,
         notes: addSessionForm.notes || null,
+        artifact_data: artifactData ?? null,
       })
       .select('*, professionals(full_name)')
       .single()
@@ -505,6 +513,25 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
                     <label className="block text-[11px] font-medium text-[var(--subtle)] mb-1">Notas</label>
                     <textarea rows={3} value={addSessionForm.notes} onChange={e => setAddSessionForm(f => ({ ...f, notes: e.target.value }))} placeholder="Evolucion, indicaciones, proxima cita..." className={cn(inputClass, 'resize-none')} />
                   </div>
+
+                  {hasArtifacts && artifactType && (
+                    <div>
+                      <label className="block text-[11px] font-medium text-[var(--subtle)] mb-1 flex items-center gap-1.5">
+                        <Stethoscope size={12} /> Artefacto clínico
+                      </label>
+                      <ArtifactViewer
+                        type={artifactType}
+                        data={artifactData}
+                        readOnly={false}
+                        onDataChange={setArtifactData}
+                      />
+                    </div>
+                  )}
+
+                  {!hasArtifacts && (
+                    <UpgradeGate feature="Artefactos clínicos interactivos" requiredPlan="Pro" description="Los artefactos clínicos están disponibles desde el plan Pro." />
+                  )}
+
                   <div className="flex gap-2 justify-end">
                     <button type="button" onClick={() => setShowAddSession(false)} className="px-3 py-1.5 rounded-[8px] border border-[var(--border)] text-[12px] text-[var(--muted)] hover:bg-[var(--surface-2)] transition-colors">Cancelar</button>
                     <button type="submit" disabled={savingSession} className="px-4 py-1.5 rounded-[8px] bg-[var(--brand)] text-white text-[12px] font-semibold disabled:opacity-60 hover:opacity-90 transition-opacity">{savingSession ? 'Guardando...' : 'Guardar sesion'}</button>

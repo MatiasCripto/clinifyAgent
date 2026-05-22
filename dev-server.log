@@ -1,0 +1,87 @@
+
+> odonto-saas@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.3:3000
+- Environments: .env.local, .env
+✓ Ready in 1002ms
+
+ GET /api/health 200 in 910ms (next.js: 610ms, proxy.ts: 268ms, application-code: 32ms)
+✓ Finished writing to filesystem cache in 10.3s
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\elpol\AppData\Local\Temp\next-panic-ab187e2855d8920f581cd8c68f7f55af.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20reading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js&body=Turbopack%20version%3A%20%60ee6e79b1%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Areading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js%0A%0ACaused%20by%3A%0A-%20Recursos%20insuficientes%20en%20el%20sistema%20para%20completar%20el%20servicio%20solicitado.%20%28os%20error%201450%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+[Server HMR] Subscription error: Error [TurbopackInternalError]: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js
+
+Caused by:
+- Recursos insuficientes en el sistema para completar el servicio solicitado. (os error 1450)
+    at <unknown> (TurbopackInternalError: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js) {
+  location: undefined
+}
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\elpol\AppData\Local\Temp\next-panic-ab187e2855d8920f581cd8c68f7f55af.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20reading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js&body=Turbopack%20version%3A%20%60ee6e79b1%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Areading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js%0A%0ACaused%20by%3A%0A-%20Recursos%20insuficientes%20en%20el%20sistema%20para%20completar%20el%20servicio%20solicitado.%20%28os%20error%201450%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+○ Compiling /_error ...
+✓ Finished writing to filesystem cache in 53s
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\elpol\AppData\Local\Temp\next-panic-ab187e2855d8920f581cd8c68f7f55af.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20reading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js&body=Turbopack%20version%3A%20%60ee6e79b1%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Areading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js%0A%0ACaused%20by%3A%0A-%20Recursos%20insuficientes%20en%20el%20sistema%20para%20completar%20el%20servicio%20solicitado.%20%28os%20error%201450%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+[Server HMR] Subscription error: Error [TurbopackInternalError]: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js
+
+Caused by:
+- Recursos insuficientes en el sistema para completar el servicio solicitado. (os error 1450)
+    at <unknown> (TurbopackInternalError: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js) {
+  location: undefined
+}
+[Server HMR] Subscription error: Error [TurbopackInternalError]: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js
+
+Caused by:
+- Recursos insuficientes en el sistema para completar el servicio solicitado. (os error 1450)
+    at <unknown> (TurbopackInternalError: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js) {
+  location: undefined
+}
+[Server HMR] Subscription error: Error [TurbopackInternalError]: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js
+
+Caused by:
+- Recursos insuficientes en el sistema para completar el servicio solicitado. (os error 1450)
+    at <unknown> (TurbopackInternalError: reading file C:\Users\elpol\Desktop\SKILLS CLAUDE CODE\kit-automatizaciones-n8n\odonto-saas\.next\dev\server\app\api\health\route.js) {
+  location: undefined
+}
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\elpol\AppData\Local\Temp\next-panic-ab187e2855d8920f581cd8c68f7f55af.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20reading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js&body=Turbopack%20version%3A%20%60ee6e79b1%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Areading%20file%20C%3A%5CUsers%5Celpol%5CDesktop%5CSKILLS%20CLAUDE%20CODE%5Ckit-automatizaciones-n8n%5Codonto-saas%5C.next%5Cdev%5Cserver%5Capp%5Capi%5Chealth%5Croute.js%0A%0ACaused%20by%3A%0A-%20Recursos%20insuficientes%20en%20el%20sistema%20para%20completar%20el%20servicio%20solicitado.%20%28os%20error%201450%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at ignore-listed frames
+⨯ Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at ignore-listed frames
+⨯ Error: <Html> should not be imported outside of pages/_document.
+Read more: https://nextjs.org/docs/messages/no-document-import-in-page
+    at ignore-listed frames
+
+-----
+[1m[31mFATAL[39m[0m: An unexpected Turbopack error occurred. A panic log has been written to C:\Users\elpol\AppData\Local\Temp\next-panic-ab187e2855d8920f581cd8c68f7f55af.log.
+
+To help make Turbopack better, report this error by clicking here: https://bugs.nextjs.org/search?category=turbopack-error-report&title=Turbopack%20Error%3A%20failed%20to%20write%20to%20%22C%3A%5C%5CUsers%5C%5Celpol%5C%5CDesktop%5C%5CSKILLS%20CLAUDE%20CODE%5C%5Ckit-automatizaciones-n8n%5C%5Codonto-saas%5C%5C.next%5C%5Cdev%5C%5Cserver%5C%5Cpages%5C%5C_document.js%22&body=Turbopack%20version%3A%20%60ee6e79b1%60%0ANext.js%20version%3A%20%600.0.0%60%0A%0AError%20message%3A%0A%60%60%60%0Afailed%20to%20write%20to%20%22C%3A%5C%5CUsers%5C%5Celpol%5C%5CDesktop%5C%5CSKILLS%20CLAUDE%20CODE%5C%5Ckit-automatizaciones-n8n%5C%5Codonto-saas%5C%5C.next%5C%5Cdev%5C%5Cserver%5C%5Cpages%5C%5C_document.js%22%0A%0ACaused%20by%3A%0A-%20Recursos%20insuficientes%20en%20el%20sistema%20para%20completar%20el%20servicio%20solicitado.%20%28os%20error%201450%29%0A%60%60%60&labels=Turbopack,Turbopack%20Panic%20Backtrace
+-----
+
+[?25h

@@ -1,0 +1,133 @@
+
+<h2 class="sr-only">Mapa muscular interactivo para kinesiología con grupos musculares seleccionables</h2>
+<style>
+.kine-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
+.muscle{cursor:pointer;transition:opacity 0.15s}
+.muscle:hover{opacity:0.65}
+.kine-legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+.kine-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
+.kine-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:320px}
+.kine-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.kine-btn:hover{background:var(--color-background-secondary)}
+.kine-btn.active{color:#fff;border-color:transparent}
+.kine-list{margin-top:10px;width:100%;max-width:320px}
+.kine-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.kine-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+.views-label{font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-bottom:4px}
+.views-row{display:flex;gap:24px;justify-content:center}
+</style>
+
+<div class="kine-wrap">
+  <div class="kine-legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#C0DD97"></div>Normal</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Contractura</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Distensión</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F4C0D1"></div>Desgarro</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#B5D4F4"></div>En tratamiento</div>
+  </div>
+
+  <div class="views-row">
+    <div>
+      <div class="views-label">Anterior</div>
+      <svg width="130" height="300" viewBox="0 0 130 300" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="m-pectoral-l" class="muscle" cx="52" cy="68" rx="20" ry="16" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Pectoral izquierdo')"/>
+        <ellipse id="m-pectoral-r" class="muscle" cx="78" cy="68" rx="20" ry="16" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Pectoral derecho')"/>
+        <ellipse id="m-deltoid-l" class="muscle" cx="22" cy="58" rx="14" ry="18" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Deltoides izquierdo')"/>
+        <ellipse id="m-deltoid-r" class="muscle" cx="108" cy="58" rx="14" ry="18" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Deltoides derecho')"/>
+        <ellipse id="m-bicep-l" class="muscle" cx="16" cy="100" rx="10" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Bíceps izquierdo')"/>
+        <ellipse id="m-bicep-r" class="muscle" cx="114" cy="100" rx="10" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Bíceps derecho')"/>
+        <rect id="m-abdomen" class="muscle" x="44" y="88" width="42" height="52" rx="8" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Abdomen')"/>
+        <ellipse id="m-cuad-l" class="muscle" cx="48" cy="190" rx="18" ry="35" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Cuádriceps izquierdo')"/>
+        <ellipse id="m-cuad-r" class="muscle" cx="82" cy="190" rx="18" ry="35" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Cuádriceps derecho')"/>
+        <ellipse id="m-tibia-l" class="muscle" cx="46" cy="255" rx="12" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Tibial izquierdo')"/>
+        <ellipse id="m-tibia-r" class="muscle" cx="84" cy="255" rx="12" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Tibial derecho')"/>
+        <ellipse id="m-trap" class="muscle" cx="65" cy="42" rx="28" ry="12" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Trapecio')"/>
+      </svg>
+    </div>
+    <div>
+      <div class="views-label">Posterior</div>
+      <svg width="130" height="300" viewBox="0 0 130 300" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="m-trap-p" class="muscle" cx="65" cy="50" rx="35" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Trapecio posterior')"/>
+        <ellipse id="m-dorsal-l" class="muscle" cx="44" cy="88" rx="22" ry="28" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Dorsal izquierdo')"/>
+        <ellipse id="m-dorsal-r" class="muscle" cx="86" cy="88" rx="22" ry="28" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Dorsal derecho')"/>
+        <ellipse id="m-gluteo-l" class="muscle" cx="48" cy="148" rx="20" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Glúteo izquierdo')"/>
+        <ellipse id="m-gluteo-r" class="muscle" cx="82" cy="148" rx="20" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Glúteo derecho')"/>
+        <ellipse id="m-isq-l" class="muscle" cx="46" cy="200" rx="16" ry="30" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Isquiotibial izquierdo')"/>
+        <ellipse id="m-isq-r" class="muscle" cx="84" cy="200" rx="16" ry="30" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Isquiotibial derecho')"/>
+        <ellipse id="m-gemelo-l" class="muscle" cx="46" cy="258" rx="13" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Gemelo izquierdo')"/>
+        <ellipse id="m-gemelo-r" class="muscle" cx="84" cy="258" rx="13" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Gemelo derecho')"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="kine-info" id="kine-info">Tocá un músculo para registrar su estado</div>
+  <div class="kine-btns" id="kine-btns" style="display:none">
+    <button class="kine-btn" data-s="contractura" data-c="#A32D2D" data-f="#F7C1C1">Contractura</button>
+    <button class="kine-btn" data-s="distension" data-c="#854F0B" data-f="#FAC775">Distensión</button>
+    <button class="kine-btn" data-s="desgarro" data-c="#993556" data-f="#F4C0D1">Desgarro</button>
+    <button class="kine-btn" data-s="tratamiento" data-c="#185FA5" data-f="#B5D4F4">En tratamiento</button>
+    <button class="kine-btn" data-s="normal" data-c="#3B6D11" data-f="#C0DD97">Normal</button>
+  </div>
+  <div class="kine-list" id="kine-list"></div>
+</div>
+
+<script>
+const muscleData={};
+const ESTADO={
+  contractura:{label:'Contractura',color:'#A32D2D',fill:'#F7C1C1'},
+  distension:{label:'Distensión',color:'#854F0B',fill:'#FAC775'},
+  desgarro:{label:'Desgarro',color:'#993556',fill:'#F4C0D1'},
+  tratamiento:{label:'En tratamiento',color:'#185FA5',fill:'#B5D4F4'},
+  normal:{label:'Normal',color:'#3B6D11',fill:'#C0DD97'},
+};
+const muscleIds={
+  'Pectoral izquierdo':'m-pectoral-l','Pectoral derecho':'m-pectoral-r',
+  'Deltoides izquierdo':'m-deltoid-l','Deltoides derecho':'m-deltoid-r',
+  'Bíceps izquierdo':'m-bicep-l','Bíceps derecho':'m-bicep-r',
+  'Abdomen':'m-abdomen',
+  'Cuádriceps izquierdo':'m-cuad-l','Cuádriceps derecho':'m-cuad-r',
+  'Tibial izquierdo':'m-tibia-l','Tibial derecho':'m-tibia-r',
+  'Trapecio':'m-trap','Trapecio posterior':'m-trap-p',
+  'Dorsal izquierdo':'m-dorsal-l','Dorsal derecho':'m-dorsal-r',
+  'Glúteo izquierdo':'m-gluteo-l','Glúteo derecho':'m-gluteo-r',
+  'Isquiotibial izquierdo':'m-isq-l','Isquiotibial derecho':'m-isq-r',
+  'Gemelo izquierdo':'m-gemelo-l','Gemelo derecho':'m-gemelo-r',
+};
+let selM=null;
+function selectMuscle(name){
+  selM=name;
+  const cur=muscleData[name];
+  document.getElementById('kine-info').innerHTML=cur
+    ?`<strong>${name}</strong> — <span style="color:${ESTADO[cur].color};font-weight:500">${ESTADO[cur].label}</span>`
+    :`<strong>${name}</strong> — Sin lesión registrada`;
+  const btns=document.getElementById('kine-btns');
+  btns.style.display='flex';
+  btns.querySelectorAll('.kine-btn').forEach(b=>{
+    const active=muscleData[name]===b.dataset.s;
+    b.className='kine-btn'+(active?' active':'');
+    b.style.background=active?b.dataset.c:'';
+    b.style.borderColor=active?b.dataset.c:'';
+    b.style.color=active?'#fff':'';
+  });
+}
+document.getElementById('kine-btns').addEventListener('click',e=>{
+  const btn=e.target.closest('.kine-btn');
+  if(!btn||!selM)return;
+  const s=btn.dataset.s;
+  if(s==='normal')delete muscleData[selM];
+  else muscleData[selM]=s;
+  const el=document.getElementById(muscleIds[selM]);
+  if(el)el.setAttribute('fill',ESTADO[s].fill);
+  selectMuscle(selM);
+  renderList();
+});
+function renderList(){
+  const list=document.getElementById('kine-list');
+  const entries=Object.entries(muscleData);
+  if(!entries.length){list.innerHTML='';return;}
+  list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Lesiones registradas</div>'+
+    entries.map(([m,s])=>`<div class="kine-row"><span>${m}</span><span class="kine-badge" style="background:${ESTADO[s].color}">${ESTADO[s].label}</span></div>`).join('');
+}
+</script>

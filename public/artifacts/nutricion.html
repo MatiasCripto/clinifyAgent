@@ -1,0 +1,213 @@
+<h2 class="sr-only">Calculadora de IMC y registro de curva de peso para nutrición</h2>
+<style>
+.nut-wrap{padding:1rem 0}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stat-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.stat-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:11px;color:var(--color-text-tertiary)}
+.nut-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.nut-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.input-row{display:flex;gap:10px;margin-bottom:10px}
+.input-row>div{flex:1}
+.imc-bar{height:10px;border-radius:5px;background:linear-gradient(to right,#B5D4F4 0%,#C0DD97 25%,#FAC775 50%,#F7C1C1 75%,#F09595 100%);margin:8px 0;position:relative}
+.imc-marker{position:absolute;top:-4px;width:4px;height:18px;background:var(--color-text-primary);border-radius:2px;transform:translateX(-50%);transition:left 0.3s}
+.imc-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-tertiary)}
+.peso-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:8px}
+.peso-list{margin-top:10px}
+.peso-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.peso-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+.chart-area{position:relative;height:120px;margin:12px 0;border-left:0.5px solid var(--color-border-secondary);border-bottom:0.5px solid var(--color-border-secondary)}
+.section-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:14px 0 8px}
+</style>
+
+<div class="nut-wrap">
+  <div class="nut-card">
+    <div class="nut-label">Datos del paciente</div>
+    <div class="input-row">
+      <div>
+        <div class="nut-label">Peso actual (kg)</div>
+        <input type="number" id="peso" placeholder="70" min="20" max="300" step="0.1" style="width:100%" oninput="calcIMC()"/>
+      </div>
+      <div>
+        <div class="nut-label">Talla (cm)</div>
+        <input type="number" id="talla" placeholder="170" min="100" max="250" style="width:100%" oninput="calcIMC()"/>
+      </div>
+    </div>
+    <div class="input-row">
+      <div>
+        <div class="nut-label">Sexo</div>
+        <select id="sexo" style="width:100%" onchange="calcIMC()">
+          <option value="">—</option>
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+        </select>
+      </div>
+      <div>
+        <div class="nut-label">Edad</div>
+        <input type="number" id="edad" placeholder="30" min="2" max="120" style="width:100%" oninput="calcIMC()"/>
+      </div>
+    </div>
+  </div>
+
+  <div id="imc-section" style="display:none">
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">IMC</div>
+        <div class="stat-val" id="imc-val">—</div>
+        <div class="stat-sub" id="imc-cat">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Peso ideal</div>
+        <div class="stat-val" id="pi-val">—</div>
+        <div class="stat-sub" id="pi-dif">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Peso mínimo saludable</div>
+        <div class="stat-val" id="pmin-val">—</div>
+        <div class="stat-sub">IMC 18.5</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Peso máximo saludable</div>
+        <div class="stat-val" id="pmax-val">—</div>
+        <div class="stat-sub">IMC 24.9</div>
+      </div>
+    </div>
+    <div class="nut-card">
+      <div class="nut-label">Clasificación IMC</div>
+      <div class="imc-bar"><div class="imc-marker" id="imc-marker" style="left:0%"></div></div>
+      <div class="imc-labels">
+        <span>Bajo peso</span><span>Normal</span><span>Sobrepeso</span><span>Obesidad</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Seguimiento de peso</div>
+  <div class="nut-card">
+    <div class="peso-row">
+      <div style="flex:1">
+        <div class="nut-label">Fecha</div>
+        <input type="date" id="fecha-peso" style="width:100%"/>
+      </div>
+      <div style="flex:1">
+        <div class="nut-label">Peso (kg)</div>
+        <input type="number" id="nuevo-peso" placeholder="70" min="20" max="300" step="0.1" style="width:100%"/>
+      </div>
+      <button onclick="addPeso()" style="padding:6px 14px;margin-bottom:1px">Agregar</button>
+    </div>
+  </div>
+
+  <div id="chart-container" style="display:none">
+    <div class="nut-card">
+      <div class="nut-label">Curva de peso</div>
+      <canvas id="peso-chart" height="120"></canvas>
+    </div>
+  </div>
+
+  <div class="peso-list" id="peso-list"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const registros = [];
+let chart = null;
+
+function calcIMC() {
+  const p = parseFloat(document.getElementById('peso').value);
+  const t = parseFloat(document.getElementById('talla').value) / 100;
+  if (!p || !t || t < 1) return;
+
+  const imc = p / (t * t);
+  const pmin = (18.5 * t * t);
+  const pmax = (24.9 * t * t);
+  const pi = (22 * t * t);
+
+  let cat, color;
+  if (imc < 18.5)      { cat = 'Bajo peso';    color = '#185FA5'; }
+  else if (imc < 25)   { cat = 'Normal';        color = '#3B6D11'; }
+  else if (imc < 30)   { cat = 'Sobrepeso';     color = '#854F0B'; }
+  else if (imc < 35)   { cat = 'Obesidad I';    color = '#A32D2D'; }
+  else if (imc < 40)   { cat = 'Obesidad II';   color = '#A32D2D'; }
+  else                 { cat = 'Obesidad III';   color = '#791F1F'; }
+
+  const pct = Math.min(Math.max(((imc - 15) / (45 - 15)) * 100, 2), 98);
+  const dif = (p - pi).toFixed(1);
+  const difTxt = dif > 0 ? `+${dif} kg vs ideal` : `${dif} kg vs ideal`;
+
+  document.getElementById('imc-section').style.display = 'block';
+  document.getElementById('imc-val').textContent = imc.toFixed(1);
+  document.getElementById('imc-cat').textContent = cat;
+  document.getElementById('imc-cat').style.color = color;
+  document.getElementById('pi-val').textContent = pi.toFixed(1) + ' kg';
+  document.getElementById('pi-dif').textContent = difTxt;
+  document.getElementById('pmin-val').textContent = pmin.toFixed(1) + ' kg';
+  document.getElementById('pmax-val').textContent = pmax.toFixed(1) + ' kg';
+  document.getElementById('imc-marker').style.left = pct + '%';
+}
+
+function addPeso() {
+  const fecha = document.getElementById('fecha-peso').value;
+  const peso = parseFloat(document.getElementById('nuevo-peso').value);
+  if (!fecha || !peso) return;
+
+  const [y, m, d] = fecha.split('-');
+  const label = `${d}/${m}/${y.slice(2)}`;
+  registros.push({ fecha, label, peso });
+  registros.sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+  document.getElementById('nuevo-peso').value = '';
+  renderChart();
+  renderList();
+}
+
+function renderChart() {
+  document.getElementById('chart-container').style.display = 'block';
+  const labels = registros.map(r => r.label);
+  const data = registros.map(r => r.peso);
+
+  if (chart) chart.destroy();
+  const ctx = document.getElementById('peso-chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderColor: '#378ADD',
+        backgroundColor: 'rgba(55,138,221,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#378ADD',
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderList() {
+  const list = document.getElementById('peso-list');
+  if (!registros.length) { list.innerHTML = ''; return; }
+  list.innerHTML = registros.slice().reverse().map((r, i, arr) => {
+    const prev = arr[i + 1];
+    let badge = '';
+    if (prev) {
+      const dif = (r.peso - prev.peso).toFixed(1);
+      const color = dif > 0 ? '#A32D2D' : '#3B6D11';
+      const sign = dif > 0 ? '+' : '';
+      badge = `<span class="peso-badge" style="background:${color}">${sign}${dif} kg</span>`;
+    }
+    return `<div class="peso-item"><span>${r.label}</span><span style="font-weight:500">${r.peso} kg</span>${badge}</div>`;
+  }).join('');
+}
+
+document.getElementById('fecha-peso').valueAsDate = new Date();
+</script>

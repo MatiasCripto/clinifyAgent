@@ -1,0 +1,213 @@
+<h2 class="sr-only">Escalas PHQ-9 de depresión y GAD-7 de ansiedad para psicología con puntaje automático</h2>
+<style>
+.psi-wrap{padding:1rem 0}
+.psi-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{font-size:12px;padding:5px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.tab.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:transparent}
+.question-block{margin-bottom:14px;padding-bottom:14px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.question-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.q-text{font-size:13px;color:var(--color-text-primary);margin-bottom:8px;line-height:1.5}
+.q-num{font-size:11px;color:var(--color-text-tertiary);font-weight:500;margin-bottom:3px}
+.options{display:flex;gap:6px;flex-wrap:wrap}
+.opt-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all 0.15s}
+.opt-btn:hover{background:var(--color-background-secondary)}
+.opt-btn.active{color:#fff;border-color:transparent}
+.result-box{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-top:12px}
+.result-score{font-size:32px;font-weight:500;color:var(--color-text-primary)}
+.result-cat{font-size:14px;font-weight:500;margin-top:2px}
+.result-desc{font-size:12px;color:var(--color-text-secondary);margin-top:6px;line-height:1.5}
+.progress-bar{height:8px;background:var(--color-background-primary);border-radius:4px;overflow:hidden;margin:10px 0;border:0.5px solid var(--color-border-tertiary)}
+.progress-fill{height:100%;border-radius:4px;transition:width 0.4s}
+.score-range{display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+.psi-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.hist-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.hist-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+</style>
+
+<div class="psi-wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('phq9',this)">PHQ-9 · Depresión</button>
+    <button class="tab" onclick="setTab('gad7',this)">GAD-7 · Ansiedad</button>
+  </div>
+
+  <div id="phq9-section">
+    <div class="psi-card">
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.5">Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas?</div>
+      <div id="phq9-questions"></div>
+    </div>
+    <div id="phq9-result" style="display:none" class="result-box">
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px">Puntaje total PHQ-9</div>
+      <div class="result-score" id="phq9-score">0</div>
+      <div class="result-cat" id="phq9-cat"></div>
+      <div class="progress-bar"><div class="progress-fill" id="phq9-bar"></div></div>
+      <div class="score-range"><span>0</span><span>5</span><span>10</span><span>15</span><span>20</span><span>27</span></div>
+      <div class="result-desc" id="phq9-desc"></div>
+    </div>
+  </div>
+
+  <div id="gad7-section" style="display:none">
+    <div class="psi-card">
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:14px;line-height:1.5">Durante las últimas 2 semanas, ¿con qué frecuencia le han molestado los siguientes problemas?</div>
+      <div id="gad7-questions"></div>
+    </div>
+    <div id="gad7-result" style="display:none" class="result-box">
+      <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px">Puntaje total GAD-7</div>
+      <div class="result-score" id="gad7-score">0</div>
+      <div class="result-cat" id="gad7-cat"></div>
+      <div class="progress-bar"><div class="progress-fill" id="gad7-bar"></div></div>
+      <div class="score-range"><span>0</span><span>5</span><span>10</span><span>15</span><span>21</span></div>
+      <div class="result-desc" id="gad7-desc"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:14px">
+    <div class="psi-card">
+      <div class="psi-label">Guardar resultado con fecha</div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <div class="psi-label">Fecha</div>
+          <input type="date" id="fecha-hist" style="width:100%"/>
+        </div>
+        <button onclick="guardarResultado()" style="padding:6px 14px;margin-bottom:1px">Guardar</button>
+      </div>
+    </div>
+    <div id="historial"></div>
+  </div>
+</div>
+
+<script>
+const PHQ9 = [
+  'Poco interés o placer en hacer cosas',
+  'Sentirse decaído, deprimido o sin esperanzas',
+  'Dificultad para quedarse o permanecer dormido, o dormir demasiado',
+  'Sentirse cansado o con poca energía',
+  'Poco apetito o comer en exceso',
+  'Sentirse mal consigo mismo — o que es un fracaso o que ha quedado mal consigo mismo o con su familia',
+  'Dificultad para concentrarse en cosas, como leer el periódico o ver la televisión',
+  'Moverse o hablar tan lento que otras personas lo han notado — o lo contrario, estar tan agitado o inquieto que ha estado moviéndose mucho más de lo normal',
+  'Pensamientos de que estaría mejor muerto, o de hacerse daño de alguna manera'
+];
+
+const GAD7 = [
+  'Sentirse nervioso, ansioso o muy alterado',
+  'No poder dejar de preocuparse o no poder controlar la preocupación',
+  'Preocuparse demasiado por muchas cosas diferentes',
+  'Dificultad para relajarse',
+  'Estar tan intranquilo que es difícil permanecer sentado quieto',
+  'Molestarse o ponerse irritable fácilmente',
+  'Sentir miedo, como si algo terrible fuera a pasar'
+];
+
+const OPTS = ['Nunca','Varios días','Más de la mitad','Casi todos los días'];
+const OPTS_COLOR = ['#5F5E5A','#854F0B','#A32D2D','#791F1F'];
+
+const respPHQ9 = new Array(9).fill(null);
+const respGAD7 = new Array(7).fill(null);
+const historial = [];
+let tabActual = 'phq9';
+
+function renderQuestions(preguntas, respuestas, containerId, prefix) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = preguntas.map((q, i) => `
+    <div class="question-block">
+      <div class="q-num">${i+1} de ${preguntas.length}</div>
+      <div class="q-text">${q}</div>
+      <div class="options">
+        ${OPTS.map((o, v) => `
+          <button class="opt-btn${respuestas[i]===v?' active':''}"
+            style="${respuestas[i]===v?`background:${OPTS_COLOR[v]};border-color:${OPTS_COLOR[v]};`:''}font-size:11px"
+            onclick="setResp('${prefix}',${i},${v})">${o} (${v})</button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function setResp(prefix, idx, val) {
+  if (prefix === 'phq9') {
+    respPHQ9[idx] = val;
+    renderQuestions(PHQ9, respPHQ9, 'phq9-questions', 'phq9');
+    calcScore('phq9');
+  } else {
+    respGAD7[idx] = val;
+    renderQuestions(GAD7, respGAD7, 'gad7-questions', 'gad7');
+    calcScore('gad7');
+  }
+}
+
+function calcScore(prefix) {
+  const resp = prefix === 'phq9' ? respPHQ9 : respGAD7;
+  const total = prefix === 'phq9' ? 27 : 21;
+  const answered = resp.filter(r => r !== null);
+  if (!answered.length) return;
+  const score = answered.reduce((a,b) => a+b, 0);
+  const pct = (score / total) * 100;
+
+  let cat, color, desc;
+  if (prefix === 'phq9') {
+    if (score <= 4)       { cat='Mínima o sin depresión'; color='#3B6D11'; desc='No se sugiere intervención activa en este momento. Monitorear en próximas consultas.'; }
+    else if (score <= 9)  { cat='Depresión leve'; color='#639922'; desc='Psicoeducación, monitoreo. Considerar seguimiento en 2-4 semanas.'; }
+    else if (score <= 14) { cat='Depresión moderada'; color='#854F0B'; desc='Iniciar tratamiento: psicoterapia y/o farmacológico. Seguimiento cercano.'; }
+    else if (score <= 19) { cat='Depresión moderada-severa'; color='#A32D2D'; desc='Tratamiento activo recomendado. Evaluar derivación a psiquiatría.'; }
+    else                  { cat='Depresión severa'; color='#791F1F'; desc='Derivación urgente. Evaluar riesgo de autolesión. Tratamiento intensivo.'; }
+    if (respPHQ9[8] >= 1) desc += ' ⚠ Ítem 9 positivo: evaluar ideación suicida.';
+  } else {
+    if (score <= 4)       { cat='Ansiedad mínima'; color='#3B6D11'; desc='No se requiere intervención activa. Monitorear.'; }
+    else if (score <= 9)  { cat='Ansiedad leve'; color='#639922'; desc='Psicoeducación, técnicas de relajación. Seguimiento en 4 semanas.'; }
+    else if (score <= 14) { cat='Ansiedad moderada'; color='#854F0B'; desc='Considerar TCC u otras intervenciones psicológicas. Evaluar farmacoterapia.'; }
+    else                  { cat='Ansiedad severa'; color='#A32D2D'; desc='Tratamiento activo necesario. Considerar derivación a psiquiatría.'; }
+  }
+
+  document.getElementById(`${prefix}-result`).style.display = 'block';
+  document.getElementById(`${prefix}-score`).textContent = score;
+  document.getElementById(`${prefix}-cat`).textContent = cat;
+  document.getElementById(`${prefix}-cat`).style.color = color;
+  document.getElementById(`${prefix}-bar`).style.width = pct + '%';
+  document.getElementById(`${prefix}-bar`).style.background = color;
+  document.getElementById(`${prefix}-desc`).textContent = desc;
+}
+
+function setTab(tab, el) {
+  tabActual = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('phq9-section').style.display = tab === 'phq9' ? 'block' : 'none';
+  document.getElementById('gad7-section').style.display = tab === 'gad7' ? 'block' : 'none';
+}
+
+function guardarResultado() {
+  const fecha = document.getElementById('fecha-hist').value;
+  if (!fecha) return;
+  const [y,m,d] = fecha.split('-');
+  const label = `${d}/${m}/${y.slice(2)}`;
+
+  const phq = respPHQ9.filter(r=>r!==null).reduce((a,b)=>a+b,0);
+  const gad = respGAD7.filter(r=>r!==null).reduce((a,b)=>a+b,0);
+  if (!phq && !gad) return;
+
+  historial.unshift({ label, phq: respPHQ9.some(r=>r!==null)?phq:null, gad: respGAD7.some(r=>r!==null)?gad:null });
+  renderHistorial();
+}
+
+function renderHistorial() {
+  const el = document.getElementById('historial');
+  if (!historial.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:10px 0 6px">Historial</div>' +
+    historial.map(h => {
+      const phqColor = h.phq === null ? '' : h.phq <= 4 ? '#3B6D11' : h.phq <= 9 ? '#639922' : h.phq <= 14 ? '#854F0B' : '#A32D2D';
+      const gadColor = h.gad === null ? '' : h.gad <= 4 ? '#3B6D11' : h.gad <= 9 ? '#639922' : h.gad <= 14 ? '#854F0B' : '#A32D2D';
+      return `<div class="hist-item">
+        <span>${h.label}</span>
+        <div style="display:flex;gap:6px">
+          ${h.phq !== null ? `<span class="hist-badge" style="background:${phqColor}">PHQ-9: ${h.phq}</span>` : ''}
+          ${h.gad !== null ? `<span class="hist-badge" style="background:${gadColor}">GAD-7: ${h.gad}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+renderQuestions(PHQ9, respPHQ9, 'phq9-questions', 'phq9');
+renderQuestions(GAD7, respGAD7, 'gad7-questions', 'gad7');
+document.getElementById('fecha-hist').valueAsDate = new Date();
+</script>

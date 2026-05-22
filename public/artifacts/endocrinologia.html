@@ -1,0 +1,432 @@
+<h2 class="sr-only">Artefacto de endocrinología con seguimiento de valores de laboratorio, gráficas y clasificación por rangos</h2>
+<style>
+.endo-wrap{padding:1rem 0}
+.endo-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.endo-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.input-row{display:flex;gap:10px;margin-bottom:10px}
+.input-row>div{flex:1}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab{font-size:12px;padding:5px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.tab.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:transparent}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stat-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.stat-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:11px}
+.range-bar{height:8px;border-radius:4px;position:relative;margin:8px 0}
+.range-fill{position:absolute;top:0;height:100%;border-radius:4px}
+.range-marker{position:absolute;top:-5px;width:4px;height:18px;background:var(--color-text-primary);border-radius:2px;transform:translateX(-50%);transition:left 0.3s}
+.range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--color-text-tertiary)}
+.section-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:14px 0 8px}
+.reg-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.reg-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+.param-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.param-row:last-child{border-bottom:none}
+.param-name{font-size:12px;color:var(--color-text-secondary);min-width:120px}
+.param-val{font-size:14px;font-weight:500;min-width:80px}
+.param-ref{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+
+<div class="endo-wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('glucosa',this)">Glucosa</button>
+    <button class="tab" onclick="setTab('tiroides',this)">Tiroides</button>
+    <button class="tab" onclick="setTab('lipidos',this)">Lípidos</button>
+    <button class="tab" onclick="setTab('registro',this)">Registro</button>
+  </div>
+
+  <div id="tab-glucosa">
+    <div class="endo-card">
+      <div class="input-row">
+        <div>
+          <div class="endo-label">Glucosa en ayunas (mg/dL)</div>
+          <input type="number" id="glucosa" placeholder="90" min="40" max="600" oninput="evalGlucosa()"/>
+        </div>
+        <div>
+          <div class="endo-label">HbA1c (%)</div>
+          <input type="number" id="hba1c" placeholder="5.5" min="3" max="20" step="0.1" oninput="evalGlucosa()"/>
+        </div>
+      </div>
+      <div class="input-row">
+        <div>
+          <div class="endo-label">Glucosa postprandial (mg/dL)</div>
+          <input type="number" id="glucosa-pp" placeholder="140" min="40" max="600" oninput="evalGlucosa()"/>
+        </div>
+        <div>
+          <div class="endo-label">Insulina en ayunas (μUI/mL)</div>
+          <input type="number" id="insulina" placeholder="10" min="1" max="200" step="0.1" oninput="evalGlucosa()"/>
+        </div>
+      </div>
+    </div>
+    <div id="gluc-result" style="display:none">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Glucosa ayunas</div>
+          <div class="stat-val" id="gluc-val">—</div>
+          <div class="stat-sub" id="gluc-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">HbA1c</div>
+          <div class="stat-val" id="hba1c-val">—</div>
+          <div class="stat-sub" id="hba1c-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">HOMA-IR</div>
+          <div class="stat-val" id="homa-val">—</div>
+          <div class="stat-sub" id="homa-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Glucosa postprandial</div>
+          <div class="stat-val" id="glucpp-val">—</div>
+          <div class="stat-sub" id="glucpp-cat" style="font-weight:500">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-tiroides" style="display:none">
+    <div class="endo-card">
+      <div class="input-row">
+        <div>
+          <div class="endo-label">TSH (mUI/L)</div>
+          <input type="number" id="tsh" placeholder="2.5" min="0" max="100" step="0.01" oninput="evalTiroides()"/>
+        </div>
+        <div>
+          <div class="endo-label">T4 libre (ng/dL)</div>
+          <input type="number" id="t4l" placeholder="1.2" min="0" max="10" step="0.01" oninput="evalTiroides()"/>
+        </div>
+      </div>
+      <div class="input-row">
+        <div>
+          <div class="endo-label">T3 libre (pg/mL)</div>
+          <input type="number" id="t3l" placeholder="3.0" min="0" max="20" step="0.1" oninput="evalTiroides()"/>
+        </div>
+        <div>
+          <div class="endo-label">Anti-TPO (UI/mL)</div>
+          <input type="number" id="antitpo" placeholder="15" min="0" max="2000" oninput="evalTiroides()"/>
+        </div>
+      </div>
+    </div>
+    <div id="tiro-result" style="display:none">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">TSH</div>
+          <div class="stat-val" id="tsh-val">—</div>
+          <div class="stat-sub" id="tsh-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">T4 libre</div>
+          <div class="stat-val" id="t4l-val">—</div>
+          <div class="stat-sub" id="t4l-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">T3 libre</div>
+          <div class="stat-val" id="t3l-val">—</div>
+          <div class="stat-sub" id="t3l-cat" style="font-weight:500">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Anti-TPO</div>
+          <div class="stat-val" id="antitpo-val">—</div>
+          <div class="stat-sub" id="antitpo-cat" style="font-weight:500">—</div>
+        </div>
+      </div>
+      <div class="endo-card" style="margin-top:0">
+        <div class="endo-label">Diagnóstico tiroideo</div>
+        <div id="tiro-diag" style="font-size:13px;color:var(--color-text-primary);margin-top:4px;line-height:1.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-lipidos" style="display:none">
+    <div class="endo-card">
+      <div class="input-row">
+        <div>
+          <div class="endo-label">Colesterol total (mg/dL)</div>
+          <input type="number" id="col-total" placeholder="200" min="50" max="500" oninput="evalLipidos()"/>
+        </div>
+        <div>
+          <div class="endo-label">LDL (mg/dL)</div>
+          <input type="number" id="ldl" placeholder="120" min="20" max="400" oninput="evalLipidos()"/>
+        </div>
+      </div>
+      <div class="input-row">
+        <div>
+          <div class="endo-label">HDL (mg/dL)</div>
+          <input type="number" id="hdl" placeholder="50" min="10" max="150" oninput="evalLipidos()"/>
+        </div>
+        <div>
+          <div class="endo-label">Triglicéridos (mg/dL)</div>
+          <input type="number" id="trig" placeholder="150" min="20" max="2000" oninput="evalLipidos()"/>
+        </div>
+      </div>
+    </div>
+    <div id="lip-result" style="display:none">
+      <div id="lip-params"></div>
+    </div>
+  </div>
+
+  <div id="tab-registro" style="display:none">
+    <div class="endo-card">
+      <div class="endo-label">Agregar resultado de laboratorio</div>
+      <div class="input-row" style="margin-top:6px">
+        <div>
+          <div class="endo-label">Fecha</div>
+          <input type="date" id="fecha-reg" style="width:100%"/>
+        </div>
+        <div>
+          <div class="endo-label">Parámetro</div>
+          <select id="param-sel" style="width:100%">
+            <option value="glucosa">Glucosa ayunas</option>
+            <option value="hba1c">HbA1c</option>
+            <option value="tsh">TSH</option>
+            <option value="t4l">T4 libre</option>
+            <option value="col">Colesterol total</option>
+            <option value="ldl">LDL</option>
+            <option value="hdl">HDL</option>
+            <option value="trig">Triglicéridos</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-row">
+        <div>
+          <div class="endo-label">Valor</div>
+          <input type="number" id="reg-val" placeholder="0" step="0.01" style="width:100%"/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button onclick="addReg()" style="width:100%;margin-bottom:1px">Agregar</button>
+        </div>
+      </div>
+    </div>
+    <div id="reg-list"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const registros = [];
+const charts = {};
+
+function setTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['glucosa','tiroides','lipidos','registro'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+function classVal(val, low, high, unit) {
+  if (val < low) return { cat: 'Bajo', color: '#185FA5' };
+  if (val > high) return { cat: 'Elevado', color: '#A32D2D' };
+  return { cat: 'Normal', color: '#3B6D11' };
+}
+
+function evalGlucosa() {
+  const g = parseFloat(document.getElementById('glucosa').value);
+  const hba = parseFloat(document.getElementById('hba1c').value);
+  const gpp = parseFloat(document.getElementById('glucosa-pp').value);
+  const ins = parseFloat(document.getElementById('insulina').value);
+  let show = false;
+
+  if (g) {
+    show = true;
+    let cat, color;
+    if (g < 70)         { cat = 'Hipoglucemia'; color = '#185FA5'; }
+    else if (g < 100)   { cat = 'Normal'; color = '#3B6D11'; }
+    else if (g < 126)   { cat = 'Prediabetes'; color = '#854F0B'; }
+    else                { cat = 'Diabetes (criterio)'; color = '#A32D2D'; }
+    document.getElementById('gluc-val').textContent = g + ' mg/dL';
+    document.getElementById('gluc-cat').textContent = cat;
+    document.getElementById('gluc-cat').style.color = color;
+  }
+  if (hba) {
+    show = true;
+    let cat, color;
+    if (hba < 5.7)      { cat = 'Normal'; color = '#3B6D11'; }
+    else if (hba < 6.5) { cat = 'Prediabetes'; color = '#854F0B'; }
+    else                { cat = 'Diabetes'; color = '#A32D2D'; }
+    document.getElementById('hba1c-val').textContent = hba.toFixed(1) + '%';
+    document.getElementById('hba1c-cat').textContent = cat;
+    document.getElementById('hba1c-cat').style.color = color;
+  }
+  if (g && ins) {
+    show = true;
+    const homa = (g * ins) / 405;
+    let cat, color;
+    if (homa < 2.5)     { cat = 'Sin resistencia'; color = '#3B6D11'; }
+    else if (homa < 3.8){ cat = 'Resistencia leve'; color = '#854F0B'; }
+    else                { cat = 'Resistencia severa'; color = '#A32D2D'; }
+    document.getElementById('homa-val').textContent = homa.toFixed(2);
+    document.getElementById('homa-cat').textContent = cat;
+    document.getElementById('homa-cat').style.color = color;
+  }
+  if (gpp) {
+    show = true;
+    let cat, color;
+    if (gpp < 140)      { cat = 'Normal'; color = '#3B6D11'; }
+    else if (gpp < 200) { cat = 'Intolerancia'; color = '#854F0B'; }
+    else                { cat = 'Diabetes (criterio)'; color = '#A32D2D'; }
+    document.getElementById('glucpp-val').textContent = gpp + ' mg/dL';
+    document.getElementById('glucpp-cat').textContent = cat;
+    document.getElementById('glucpp-cat').style.color = color;
+  }
+
+  if (show) document.getElementById('gluc-result').style.display = 'block';
+}
+
+function evalTiroides() {
+  const tsh = parseFloat(document.getElementById('tsh').value);
+  const t4l = parseFloat(document.getElementById('t4l').value);
+  const t3l = parseFloat(document.getElementById('t3l').value);
+  const antitpo = parseFloat(document.getElementById('antitpo').value);
+  let show = false;
+
+  if (tsh) {
+    show = true;
+    let cat, color;
+    if (tsh < 0.4)       { cat = 'Suprimida (hipertir.)'; color = '#A32D2D'; }
+    else if (tsh < 0.5)  { cat = 'Límite inferior'; color = '#854F0B'; }
+    else if (tsh <= 4.5) { cat = 'Normal'; color = '#3B6D11'; }
+    else if (tsh <= 10)  { cat = 'Elevada (hipotir. sub.)'; color = '#854F0B'; }
+    else                 { cat = 'Muy elevada (hipotir.)'; color = '#A32D2D'; }
+    document.getElementById('tsh-val').textContent = tsh + ' mUI/L';
+    document.getElementById('tsh-cat').textContent = cat;
+    document.getElementById('tsh-cat').style.color = color;
+  }
+  if (t4l) {
+    show = true;
+    const r = classVal(t4l, 0.8, 1.8, 'ng/dL');
+    document.getElementById('t4l-val').textContent = t4l + ' ng/dL';
+    document.getElementById('t4l-cat').textContent = r.cat;
+    document.getElementById('t4l-cat').style.color = r.color;
+  }
+  if (t3l) {
+    show = true;
+    const r = classVal(t3l, 2.3, 4.2, 'pg/mL');
+    document.getElementById('t3l-val').textContent = t3l + ' pg/mL';
+    document.getElementById('t3l-cat').textContent = r.cat;
+    document.getElementById('t3l-cat').style.color = r.color;
+  }
+  if (antitpo) {
+    show = true;
+    const alt = antitpo > 35;
+    document.getElementById('antitpo-val').textContent = antitpo + ' UI/mL';
+    document.getElementById('antitpo-cat').textContent = alt ? 'Elevado' : 'Normal';
+    document.getElementById('antitpo-cat').style.color = alt ? '#A32D2D' : '#3B6D11';
+  }
+
+  if (show) {
+    document.getElementById('tiro-result').style.display = 'block';
+    let diag = '';
+    if (tsh && t4l) {
+      if (tsh > 4.5 && t4l < 0.8) diag = 'Compatible con hipotiroidismo primario.';
+      else if (tsh > 4.5 && t4l >= 0.8) diag = 'Compatible con hipotiroidismo subclínico.';
+      else if (tsh < 0.4 && t4l > 1.8) diag = 'Compatible con hipertiroidismo primario.';
+      else if (tsh < 0.4 && t4l <= 1.8) diag = 'Compatible con hipertiroidismo subclínico.';
+      else diag = 'Función tiroidea dentro de rangos normales.';
+      if (antitpo > 35) diag += ' Anti-TPO elevado: sugestivo de tiroiditis autoinmune (Hashimoto).';
+    }
+    document.getElementById('tiro-diag').textContent = diag;
+  }
+}
+
+function evalLipidos() {
+  const ct = parseFloat(document.getElementById('col-total').value);
+  const ldl = parseFloat(document.getElementById('ldl').value);
+  const hdl = parseFloat(document.getElementById('hdl').value);
+  const trig = parseFloat(document.getElementById('trig').value);
+
+  const params = [];
+  if (ct)   params.push({ name: 'Colesterol total', val: ct, unit: 'mg/dL', low: 0, high: 200, opt: '<200 deseable, <240 límite' });
+  if (ldl)  params.push({ name: 'LDL', val: ldl, unit: 'mg/dL', low: 0, high: 130, opt: '<100 óptimo, <130 normal, >160 alto' });
+  if (hdl)  params.push({ name: 'HDL', val: hdl, unit: 'mg/dL', low: 40, high: 999, opt: '>40 H, >50 M, >60 cardioprotector' });
+  if (trig) params.push({ name: 'Triglicéridos', val: trig, unit: 'mg/dL', low: 0, high: 150, opt: '<150 normal, 150-199 límite, >200 alto' });
+
+  if (!params.length) return;
+  document.getElementById('lip-result').style.display = 'block';
+  document.getElementById('lip-params').innerHTML = params.map(p => {
+    let cat, color;
+    if (p.name === 'HDL') {
+      cat = p.val < 40 ? 'Bajo (riesgo)' : p.val < 60 ? 'Normal' : 'Cardioprotector';
+      color = p.val < 40 ? '#A32D2D' : p.val < 60 ? '#3B6D11' : '#185FA5';
+    } else {
+      cat = p.val > p.high ? 'Elevado' : 'Normal';
+      color = p.val > p.high ? '#A32D2D' : '#3B6D11';
+    }
+    return `<div class="param-row">
+      <span class="param-name">${p.name}</span>
+      <span class="param-val" style="color:${color}">${p.val} ${p.unit}</span>
+      <span style="font-size:11px;font-weight:500;color:${color}">${cat}</span>
+      <span class="param-ref">${p.opt}</span>
+    </div>`;
+  }).join('');
+}
+
+function addReg() {
+  const fecha = document.getElementById('fecha-reg').value;
+  const param = document.getElementById('param-sel').value;
+  const val = parseFloat(document.getElementById('reg-val').value);
+  if (!fecha || !val) return;
+
+  const [y,m,d] = fecha.split('-');
+  const label = `${d}/${m}/${y.slice(2)}`;
+  const nombres = { glucosa:'Glucosa', hba1c:'HbA1c', tsh:'TSH', t4l:'T4 libre', col:'Colesterol', ldl:'LDL', hdl:'HDL', trig:'Triglicéridos' };
+  registros.push({ fecha, label, param, nombre: nombres[param], val });
+  registros.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  document.getElementById('reg-val').value = '';
+  renderRegList();
+}
+
+function renderRegList() {
+  const list = document.getElementById('reg-list');
+  if (!registros.length) { list.innerHTML = ''; return; }
+  const byParam = {};
+  registros.forEach(r => {
+    if (!byParam[r.param]) byParam[r.param] = [];
+    byParam[r.param].push(r);
+  });
+
+  list.innerHTML = Object.entries(byParam).map(([param, regs]) => {
+    const canvasId = 'chart-' + param;
+    return `<div class="endo-card" style="margin-top:10px">
+      <div class="endo-label" style="font-weight:500">${regs[0].nombre}</div>
+      <canvas id="${canvasId}" height="80"></canvas>
+      <div style="margin-top:8px">${regs.slice().reverse().map(r =>
+        `<div class="reg-item"><span>${r.label}</span><span style="font-weight:500">${r.val}</span></div>`
+      ).join('')}</div>
+    </div>`;
+  }).join('');
+
+  Object.entries(byParam).forEach(([param, regs]) => {
+    const ctx = document.getElementById('chart-' + param);
+    if (!ctx) return;
+    if (charts[param]) charts[param].destroy();
+    charts[param] = new Chart(ctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: regs.map(r => r.label),
+        datasets: [{
+          data: regs.map(r => r.val),
+          borderColor: '#378ADD',
+          backgroundColor: 'rgba(55,138,221,0.08)',
+          borderWidth: 2,
+          pointRadius: 4,
+          pointBackgroundColor: '#378ADD',
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { font: { size: 10 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  });
+}
+
+document.getElementById('fecha-reg').valueAsDate = new Date();
+['tiroides','lipidos','registro'].forEach(t => document.getElementById('tab-' + t).style.display = 'none');
+</script>

@@ -1,0 +1,155 @@
+
+<h2 class="sr-only">Diagrama ocular interactivo para oftalmología con registro de patologías por zona</h2>
+<style>
+.oft-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
+.eyes-row{display:flex;gap:32px;justify-content:center;margin-bottom:12px}
+.eye-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.eye-label{font-size:11px;color:var(--color-text-tertiary)}
+.zone{cursor:pointer;transition:opacity 0.15s}
+.zone:hover{opacity:0.65}
+.oft-legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+.oft-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
+.path-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:320px}
+.path-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.path-btn:hover{background:var(--color-background-secondary)}
+.path-btn.active{color:#fff;border-color:transparent}
+.oft-list{margin-top:10px;width:100%;max-width:320px}
+.oft-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.oft-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+.acuity-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0;width:100%;max-width:320px}
+.acuity-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
+.acuity-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.acuity-val{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+</style>
+
+<div class="oft-wrap">
+  <div class="oft-legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#B5D4F4"></div>Normal</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Inflamación</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Opacidad</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F4C0D1"></div>Lesión</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#C0DD97"></div>Cicatriz</div>
+  </div>
+
+  <div class="eyes-row">
+    <div class="eye-col">
+      <div class="eye-label">Ojo derecho</div>
+      <svg width="130" height="130" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="od-sclera" class="zone" cx="65" cy="65" rx="58" ry="45" fill="#F8F4EE" stroke="#C4B89A" stroke-width="1.2" onclick="selectZone('OD - Esclera')"/>
+        <ellipse id="od-cornea" class="zone" cx="65" cy="65" rx="32" ry="32" fill="#B5D4F4" stroke="#378ADD" stroke-width="1" onclick="selectZone('OD - Córnea')"/>
+        <ellipse id="od-iris" class="zone" cx="65" cy="65" rx="22" ry="22" fill="#5DCAA5" stroke="#0F6E56" stroke-width="1" onclick="selectZone('OD - Iris')"/>
+        <circle id="od-pupil" class="zone" cx="65" cy="65" r="10" fill="#2C2C2A" onclick="selectZone('OD - Pupila')"/>
+        <ellipse id="od-retina-s" class="zone" cx="65" cy="30" rx="18" ry="10" fill="transparent" stroke="transparent" onclick="selectZone('OD - Retina superior')"/>
+        <ellipse id="od-retina-i" class="zone" cx="65" cy="100" rx="18" ry="10" fill="transparent" stroke="transparent" onclick="selectZone('OD - Retina inferior')"/>
+        <circle id="od-macula" class="zone" cx="78" cy="58" r="6" fill="#FAC775" stroke="#EF9F27" stroke-width="1" onclick="selectZone('OD - Mácula')"/>
+        <circle id="od-nervio" class="zone" cx="42" cy="65" r="7" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectZone('OD - Nervio óptico')"/>
+        <text x="78" y="56" font-size="7" fill="#854F0B" text-anchor="middle" pointer-events="none">M</text>
+        <text x="42" y="68" font-size="7" fill="#5F5E5A" text-anchor="middle" pointer-events="none">NO</text>
+      </svg>
+    </div>
+    <div class="eye-col">
+      <div class="eye-label">Ojo izquierdo</div>
+      <svg width="130" height="130" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="oi-sclera" class="zone" cx="65" cy="65" rx="58" ry="45" fill="#F8F4EE" stroke="#C4B89A" stroke-width="1.2" onclick="selectZone('OI - Esclera')"/>
+        <ellipse id="oi-cornea" class="zone" cx="65" cy="65" rx="32" ry="32" fill="#B5D4F4" stroke="#378ADD" stroke-width="1" onclick="selectZone('OI - Córnea')"/>
+        <ellipse id="oi-iris" class="zone" cx="65" cy="65" rx="22" ry="22" fill="#5DCAA5" stroke="#0F6E56" stroke-width="1" onclick="selectZone('OI - Iris')"/>
+        <circle id="oi-pupil" class="zone" cx="65" cy="65" r="10" fill="#2C2C2A" onclick="selectZone('OI - Pupila')"/>
+        <circle id="oi-macula" class="zone" cx="52" cy="58" r="6" fill="#FAC775" stroke="#EF9F27" stroke-width="1" onclick="selectZone('OI - Mácula')"/>
+        <circle id="oi-nervio" class="zone" cx="88" cy="65" r="7" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectZone('OI - Nervio óptico')"/>
+        <text x="52" y="56" font-size="7" fill="#854F0B" text-anchor="middle" pointer-events="none">M</text>
+        <text x="88" y="68" font-size="7" fill="#5F5E5A" text-anchor="middle" pointer-events="none">NO</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="acuity-grid">
+    <div class="acuity-box">
+      <div class="acuity-label">Agudeza OD</div>
+      <input type="text" id="av-od" placeholder="20/20" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+    </div>
+    <div class="acuity-box">
+      <div class="acuity-label">Agudeza OI</div>
+      <input type="text" id="av-oi" placeholder="20/20" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+    </div>
+    <div class="acuity-box">
+      <div class="acuity-label">PIO OD (mmHg)</div>
+      <input type="number" id="pio-od" placeholder="15" min="0" max="80" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+    </div>
+    <div class="acuity-box">
+      <div class="acuity-label">PIO OI (mmHg)</div>
+      <input type="number" id="pio-oi" placeholder="15" min="0" max="80" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+    </div>
+  </div>
+
+  <div class="oft-info" id="oft-info">Tocá una zona del ojo para registrar un hallazgo</div>
+  <div class="path-btns" id="path-btns" style="display:none">
+    <button class="path-btn" data-p="inflamacion" data-c="#A32D2D" data-f="#F7C1C1">Inflamación</button>
+    <button class="path-btn" data-p="opacidad" data-c="#854F0B" data-f="#FAC775">Opacidad</button>
+    <button class="path-btn" data-p="lesion" data-c="#993556" data-f="#F4C0D1">Lesión</button>
+    <button class="path-btn" data-p="cicatriz" data-c="#3B6D11" data-f="#C0DD97">Cicatriz</button>
+    <button class="path-btn" data-p="normal" data-c="#185FA5" data-f="#B5D4F4">Normal</button>
+  </div>
+  <div class="oft-list" id="oft-list"></div>
+</div>
+
+<script>
+const zoneData={};
+const PATOL={
+  inflamacion:{label:'Inflamación',color:'#A32D2D',fill:'#F7C1C1'},
+  opacidad:{label:'Opacidad',color:'#854F0B',fill:'#FAC775'},
+  lesion:{label:'Lesión',color:'#993556',fill:'#F4C0D1'},
+  cicatriz:{label:'Cicatriz',color:'#3B6D11',fill:'#C0DD97'},
+  normal:{label:'Normal',color:'#185FA5',fill:'#B5D4F4'},
+};
+const zoneIds={
+  'OD - Esclera':'od-sclera','OD - Córnea':'od-cornea','OD - Iris':'od-iris',
+  'OD - Pupila':'od-pupil','OD - Mácula':'od-macula','OD - Nervio óptico':'od-nervio',
+  'OI - Esclera':'oi-sclera','OI - Córnea':'oi-cornea','OI - Iris':'oi-iris',
+  'OI - Pupila':'oi-pupil','OI - Mácula':'oi-macula','OI - Nervio óptico':'oi-nervio',
+};
+const defaultFill={
+  'od-sclera':'#F8F4EE','od-cornea':'#B5D4F4','od-iris':'#5DCAA5','od-pupil':'#2C2C2A','od-macula':'#FAC775','od-nervio':'#E8DFD0',
+  'oi-sclera':'#F8F4EE','oi-cornea':'#B5D4F4','oi-iris':'#5DCAA5','oi-pupil':'#2C2C2A','oi-macula':'#FAC775','oi-nervio':'#E8DFD0',
+};
+let sel=null;
+function selectZone(name){
+  sel=name;
+  const cur=zoneData[name];
+  document.getElementById('oft-info').innerHTML=cur
+    ?`<strong>${name}</strong> — <span style="color:${PATOL[cur].color};font-weight:500">${PATOL[cur].label}</span>`
+    :`<strong>${name}</strong> — Sin hallazgo registrado`;
+  const btns=document.getElementById('path-btns');
+  btns.style.display='flex';
+  btns.querySelectorAll('.path-btn').forEach(b=>{
+    const active=zoneData[name]===b.dataset.p;
+    b.className='path-btn'+(active?' active':'');
+    b.style.background=active?b.dataset.c:'';
+    b.style.borderColor=active?b.dataset.c:'';
+    b.style.color=active?'#fff':'';
+  });
+}
+document.getElementById('path-btns').addEventListener('click',e=>{
+  const btn=e.target.closest('.path-btn');
+  if(!btn||!sel)return;
+  const p=btn.dataset.p;
+  if(p==='normal')delete zoneData[sel];
+  else zoneData[sel]=p;
+  const id=zoneIds[sel];
+  const el=document.getElementById(id);
+  if(el){
+    const f=p==='normal'?defaultFill[id]:PATOL[p].fill;
+    el.setAttribute('fill',f);
+  }
+  selectZone(sel);
+  renderList();
+});
+function renderList(){
+  const list=document.getElementById('oft-list');
+  const entries=Object.entries(zoneData);
+  if(!entries.length){list.innerHTML='';return;}
+  list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Hallazgos registrados</div>'+
+    entries.map(([z,p])=>`<div class="oft-row"><span>${z}</span><span class="oft-badge" style="background:${PATOL[p].color}">${PATOL[p].label}</span></div>`).join('');
+}
+</script>

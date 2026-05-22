@@ -17,34 +17,45 @@ async function getProfile() {
   return profile
 }
 
-// GET — list specialties
+function isAdmin(role: string) {
+  return ['superadmin', 'owner', 'admin'].includes(role)
+}
+
+// GET — list specialties (default + org custom)
 export async function GET() {
   const profile = await getProfile()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const admin = createAdminClient()
-  let query = admin.from('specialties').select('*').order('name')
-  if (profile.organization_id) query = query.eq('organization_id', profile.organization_id)
-  else if (profile.role !== 'superadmin') query = query.is('organization_id', null)
-  const { data, error } = await query
+
+  // Fetch default specialties + org custom
+  const { data, error } = await admin
+    .from('specialties')
+    .select('*')
+    .or(`is_default.eq.true,organization_id.eq.${profile.organization_id}`)
+    .order('name')
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data ?? [])
 }
 
-// POST — create specialty
+// POST — create custom specialty for the org
 export async function POST(req: NextRequest) {
   const profile = await getProfile()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['superadmin', 'owner', 'admin'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { name, color } = await req.json()
+  const { name, artifact_type } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
 
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('specialties')
-    .insert({ organization_id: profile.organization_id, name: name.trim(), color: color ?? '#6366f1' })
+    .insert({
+      organization_id: profile.organization_id,
+      name: name.trim(),
+      artifact_type: artifact_type ?? null,
+      is_default: false,
+    })
     .select()
     .single()
 
@@ -52,19 +63,51 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data)
 }
 
-// DELETE — remove specialty
+// PATCH — update name or artifact_type of a custom specialty
+export async function PATCH(req: NextRequest) {
+  const profile = await getProfile()
+  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { id, name, artifact_type } = await req.json()
+  if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
+
+  const admin = createAdminClient()
+  const updates: Record<string, unknown> = {}
+  if (name !== undefined) updates.name = name.trim()
+  if (artifact_type !== undefined) updates.artifact_type = artifact_type
+
+  const { data, error } = await admin
+    .from('specialties')
+    .update(updates)
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .eq('is_default', false)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
+// DELETE — remove custom specialty (default ones are protected)
 export async function DELETE(req: NextRequest) {
   const profile = await getProfile()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['superadmin', 'owner', 'admin'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
   const admin = createAdminClient()
-  const { error } = await admin.from('specialties').delete().eq('id', id).eq('organization_id', profile.organization_id)
+  // Only allow deleting custom (non-default) specialties belonging to the org
+  const { error } = await admin
+    .from('specialties')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', profile.organization_id)
+    .eq('is_default', false)
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

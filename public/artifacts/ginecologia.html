@@ -1,0 +1,143 @@
+
+<h2 class="sr-only">Calendario gestacional interactivo con cálculo de semanas, trimestres y fecha probable de parto</h2>
+<style>
+.gest-wrap{padding:1rem 0}
+.gest-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.gest-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.gest-big{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.gest-sub{font-size:12px;color:var(--color-text-tertiary);margin-top:2px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stat-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.stat-val{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:11px;color:var(--color-text-tertiary)}
+.trim-bar{display:flex;border-radius:var(--border-radius-md);overflow:hidden;height:20px;margin:10px 0}
+.trim-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;transition:width 0.4s}
+.milestones{margin-top:12px}
+.mile-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px}
+.mile-item{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.mile-week{font-size:11px;font-weight:500;min-width:32px;color:var(--color-text-tertiary)}
+.mile-dot{width:10px;height:10px;border-radius:50%;margin-top:2px;flex-shrink:0}
+.mile-text{font-size:12px;color:var(--color-text-secondary);line-height:1.4}
+.mile-item.past .mile-week{color:var(--color-text-primary)}
+.mile-item.current .mile-dot{box-shadow:0 0 0 3px rgba(55,138,221,0.25)}
+.progress-bar{height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.4s}
+</style>
+
+<div class="gest-wrap">
+  <div class="gest-card">
+    <div class="gest-label">Fecha de última menstruación (FUM)</div>
+    <input type="date" id="fum-input" style="width:100%;margin-top:4px" />
+  </div>
+
+  <div id="gest-result" style="display:none">
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">Semana actual</div>
+        <div class="stat-val" id="sem-actual">—</div>
+        <div class="stat-sub" id="dias-actual">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Trimestre</div>
+        <div class="stat-val" id="trimestre">—</div>
+        <div class="stat-sub" id="trim-label">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Fecha probable de parto</div>
+        <div class="stat-val" style="font-size:14px" id="fpp">—</div>
+        <div class="stat-sub" id="dias-fpp">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Progreso</div>
+        <div class="stat-val" id="pct">—</div>
+        <div class="stat-sub">de 40 semanas</div>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" id="prog-fill" style="background:#378ADD;width:0%"></div>
+    </div>
+
+    <div class="trim-bar" id="trim-bar">
+      <div style="background:#B5D4F4;width:33.3%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#0C447C">1er trimestre</div>
+      <div style="background:#C0DD97;width:33.3%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#27500A">2do trimestre</div>
+      <div style="background:#F4C0D1;width:33.4%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#72243E">3er trimestre</div>
+    </div>
+
+    <div class="milestones">
+      <div class="mile-title">Hitos del embarazo</div>
+      <div id="miles-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MILESTONES = [
+  {w:4,  text:'Implantación. Test de embarazo positivo posible.'},
+  {w:6,  text:'Latido cardíaco detectable por ecografía transvaginal.'},
+  {w:8,  text:'Embrión mide ~16mm. Se forman todos los órganos principales.'},
+  {w:10, text:'Fin del período embrionario. Comienza el período fetal.'},
+  {w:12, text:'Ecografía del 1er trimestre. Translucencia nucal. Riesgo de Down.'},
+  {w:16, text:'Amniocentesis si está indicada. Movimientos fetales posibles.'},
+  {w:20, text:'Ecografía morfológica. Se puede conocer el sexo.'},
+  {w:24, text:'Viabilidad fetal fuera del útero con cuidados intensivos.'},
+  {w:28, text:'Inicio del 3er trimestre. Maduración pulmonar.'},
+  {w:32, text:'El bebé ocupa la posición cefálica. Control de movimientos.'},
+  {w:36, text:'Bebé a término temprano. Madurez pulmonar completa.'},
+  {w:38, text:'Término completo. El parto puede ocurrir en cualquier momento.'},
+  {w:40, text:'Fecha probable de parto (Regla de Naegele).'},
+];
+
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function fmtDate(d) {
+  return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+document.getElementById('fum-input').addEventListener('change', function() {
+  const fum = new Date(this.value + 'T00:00:00');
+  if (isNaN(fum)) return;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const diffMs = today - fum;
+  const diffDays = Math.floor(diffMs / 86400000);
+  const semanas = Math.floor(diffDays / 7);
+  const diasResto = diffDays % 7;
+
+  const fpp = new Date(fum);
+  fpp.setDate(fpp.getDate() + 280);
+  const diasFpp = Math.ceil((fpp - today) / 86400000);
+
+  const pct = Math.min(Math.round((diffDays / 280) * 100), 100);
+
+  let trim, trimLabel;
+  if (semanas < 13) { trim = '1°'; trimLabel = 'Semanas 1–12'; }
+  else if (semanas < 27) { trim = '2°'; trimLabel = 'Semanas 13–26'; }
+  else { trim = '3°'; trimLabel = 'Semanas 27–40'; }
+
+  document.getElementById('gest-result').style.display = 'block';
+  document.getElementById('sem-actual').textContent = `${semanas}`;
+  document.getElementById('dias-actual').textContent = `${diasResto} día${diasResto !== 1 ? 's' : ''} adicional${diasResto !== 1 ? 'es' : ''}`;
+  document.getElementById('trimestre').textContent = trim;
+  document.getElementById('trim-label').textContent = trimLabel;
+  document.getElementById('fpp').textContent = fmtDate(fpp);
+  document.getElementById('dias-fpp').textContent = diasFpp > 0 ? `En ${diasFpp} días` : diasFpp === 0 ? 'Hoy' : `Hace ${Math.abs(diasFpp)} días`;
+  document.getElementById('pct').textContent = `${pct}%`;
+  document.getElementById('prog-fill').style.width = `${pct}%`;
+
+  const list = document.getElementById('miles-list');
+  list.innerHTML = MILESTONES.map(m => {
+    const past = semanas > m.w;
+    const current = semanas === m.w;
+    const dotColor = past ? '#639922' : current ? '#378ADD' : '#D3D1C7';
+    return `<div class="mile-item ${past?'past':''} ${current?'current':''}">
+      <span class="mile-week">Sem ${m.w}</span>
+      <div class="mile-dot" style="background:${dotColor}"></div>
+      <span class="mile-text">${m.text}</span>
+    </div>`;
+  }).join('');
+});
+</script>
