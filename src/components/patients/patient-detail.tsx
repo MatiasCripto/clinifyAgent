@@ -93,6 +93,31 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
   const { hasAnalytics, plan } = usePlan()
   const hasArtifacts = plan !== 'starter'
 
+  // Fetch artifact type when professional changes in add session form
+  useEffect(() => {
+    if (!addSessionForm.professional_id || !currentClinic) {
+      setArtifactType(null)
+      setArtifactData(null)
+      return
+    }
+    const sb = createClient()
+    sb.from('professionals')
+      .select('specialty_id')
+      .eq('id', addSessionForm.professional_id)
+      .single()
+      .then(({ data: prof }) => {
+        if (!prof?.specialty_id) { setArtifactType(null); return }
+        sb.from('specialties')
+          .select('artifact_type')
+          .eq('id', prof.specialty_id as string)
+          .single()
+          .then(({ data: spec }) => {
+            setArtifactType((spec?.artifact_type as string) ?? null)
+            setArtifactData(null)
+          })
+      })
+  }, [addSessionForm.professional_id, currentClinic])
+
   // Documents state
   const [documents, setDocuments]             = useState<PatientDocument[]>([])
   const [docsLoaded, setDocsLoaded]           = useState(false)
