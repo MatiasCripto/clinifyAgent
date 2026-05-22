@@ -10,13 +10,112 @@ interface Props {
   onDataChange?: (data: Record<string, unknown>) => void
 }
 
+const INJECTED_SCRIPT = `
+<script>
+(function() {
+  if (window.__clinifyInjected) return;
+  window.__clinifyInjected = true;
+
+  // Notify parent we're ready
+  window.parent.postMessage({ type: 'artifact:ready' }, '*');
+
+  // Listen for load/restore from parent
+  window.addEventListener('message', function(e) {
+    if (e.data?.type === 'artifact:load' && e.data.data) {
+      try { if (typeof loadState === 'function') loadState(e.data.data); } catch(ex) {}
+    }
+  });
+
+  // Serialize current state: all checkboxes, selects, text inputs, data-attrs
+  function captureState() {
+    var state = {};
+    document.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function(el) {
+      state[el.id || el.name || ('el-' + Math.random().toString(36).slice(2))] = el.checked;
+    });
+    document.querySelectorAll('select').forEach(function(el) {
+      if (el.id || el.name) state[el.id || el.name] = el.value;
+    });
+    document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el) {
+      if (el.id || el.name) state[el.id || el.name] = el.value;
+    });
+    document.querySelectorAll('[data-artifact-state]').forEach(function(el) {
+      try { state[el.dataset.artifactState] = JSON.parse(el.dataset.artifactState); } catch(ex) {}
+    });
+    return state;
+  }
+
+  // Debounced change notifier
+  var timer = null;
+  function notify() {
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      var state = captureState();
+      window.parent.postMessage({ type: 'artifact:change', data: state }, '*');
+    }, 300);
+  }
+
+  document.addEventListener('change', notify);
+  document.addEventListener('input', notify);
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('button, [role=button], .clickable, [onclick]')) {
+      setTimeout(notify, 100);
+    }
+  });
+
+  // Expose for custom artifacts that have their own state logic
+  window.notifyChange = function(data) {
+    window.parent.postMessage({ type: 'artifact:change', data: data || captureState() }, '*');
+  };
+
+  // Override loadState from artifact
+  if (typeof window.loadState !== 'function') {
+    window.loadState = function(data) {
+      if (!data) return;
+      Object.keys(data).forEach(function(key) {
+        try {
+          var el = document.getElementById(key) || document.getElementsByName(key)[0];
+          if (!el) el = document.querySelector('[data-artifact-state="'+key+'"]');
+          if (el) {
+            if (el.type === 'checkbox' || el.type === 'radio') el.checked = data[key];
+            else if (el.tagName === 'SELECT') el.value = data[key];
+            else el.value = data[key];
+          }
+        } catch(ex) {}
+      });
+    };
+  }
+})();
+</script>`
+
 export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Fallback: hide spinner after 2s even if artifact:ready never arrives
+  // Fetch artifact HTML and inject postMessage script
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 2000)
+    if (!type) return
+    setLoading(true)
+    setError(null)
+    fetch(`/artifacts/${type}.html`)
+      .then(r => { if (!r.ok) throw new Error('Not found'); return r.text() })
+      .then(html => {
+        // Insert injected script before </body> or at the end
+        if (html.includes('</body>')) {
+          html = html.replace('</body>', INJECTED_SCRIPT + '</body>')
+        } else {
+          html += INJECTED_SCRIPT
+        }
+        setHtmlContent(html)
+        setLoading(false)
+      })
+      .catch(err => { setError('Error al cargar el artefacto'); setLoading(false) })
+  }, [type])
+
+  // Fallback timeout
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 3000)
     return () => clearTimeout(t)
   }, [type])
 
@@ -26,10 +125,7 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
     if (e.data.type === 'artifact:ready') {
       setLoading(false)
       if (readOnly && data) {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: 'artifact:load', data },
-          '*'
-        )
+        iframeRef.current?.contentWindow?.postMessage({ type: 'artifact:load', data }, '*')
       }
     }
 
@@ -43,15 +139,11 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
     return () => window.removeEventListener('message', handleMessage)
   }, [handleMessage])
 
-  // Send data when it changes in readOnly mode
+  // Send data in readOnly mode after load
   useEffect(() => {
     if (!loading && readOnly && data) {
-      // Small delay to ensure iframe is loaded
       const t = setTimeout(() => {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: 'artifact:load', data },
-          '*'
-        )
+        iframeRef.current?.contentWindow?.postMessage({ type: 'artifact:load', data }, '*')
       }, 500)
       return () => clearTimeout(t)
     }
@@ -65,7 +157,13 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
     )
   }
 
-  const src = `/artifacts/${type}.html`
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-8 text-[13px] text-red-500">
+        {error}
+      </div>
+    )
+  }
 
   return (
     <div className="relative">
@@ -74,17 +172,18 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
           <div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      <iframe
-        ref={iframeRef}
-        src={src}
-        className={cn(
-          'w-full border border-[var(--border)] rounded-[10px] bg-white',
-          loading ? 'invisible' : 'visible'
-        )}
-        style={{ minHeight: 400 }}
-        sandbox="allow-scripts allow-same-origin"
-        title={`Artefacto: ${type}`}
-      />
+      {htmlContent && (
+        <iframe
+          ref={iframeRef}
+          srcDoc={htmlContent}
+          className={cn(
+            'w-full border border-[var(--border)] rounded-[10px] bg-white',
+            loading ? 'invisible' : 'visible'
+          )}
+          style={{ minHeight: 400 }}
+          title={`Artefacto: ${type}`}
+        />
+      )}
     </div>
   )
 }
