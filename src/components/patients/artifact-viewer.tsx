@@ -12,15 +12,19 @@ interface Props {
 
 export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const [ready, setReady] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // Fallback: hide spinner after 2s even if artifact:ready never arrives
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 2000)
+    return () => clearTimeout(t)
+  }, [type])
 
   const handleMessage = useCallback((e: MessageEvent) => {
     if (!e.data || typeof e.data !== 'object') return
 
     if (e.data.type === 'artifact:ready') {
-      setReady(true)
-      // If we have saved data and it's readOnly, send it to the iframe
+      setLoading(false)
       if (readOnly && data) {
         iframeRef.current?.contentWindow?.postMessage(
           { type: 'artifact:load', data },
@@ -39,15 +43,19 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
     return () => window.removeEventListener('message', handleMessage)
   }, [handleMessage])
 
-  // Send data when switching to readOnly mode or data changes
+  // Send data when it changes in readOnly mode
   useEffect(() => {
-    if (ready && readOnly && data) {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: 'artifact:load', data },
-        '*'
-      )
+    if (!loading && readOnly && data) {
+      // Small delay to ensure iframe is loaded
+      const t = setTimeout(() => {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'artifact:load', data },
+          '*'
+        )
+      }, 500)
+      return () => clearTimeout(t)
     }
-  }, [ready, readOnly, data])
+  }, [loading, readOnly, data])
 
   if (!type) {
     return (
@@ -61,25 +69,21 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
 
   return (
     <div className="relative">
-      {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface)] rounded-[10px]">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface)] rounded-[10px] z-10">
           <div className="w-5 h-5 border-2 border-[var(--brand)] border-t-transparent rounded-full animate-spin" />
         </div>
-      )}
-      {error && (
-        <div className="text-[12px] text-red-500 mb-2">{error}</div>
       )}
       <iframe
         ref={iframeRef}
         src={src}
         className={cn(
           'w-full border border-[var(--border)] rounded-[10px] bg-white',
-          ready ? 'opacity-100' : 'opacity-0'
+          loading ? 'invisible' : 'visible'
         )}
         style={{ minHeight: 400 }}
         sandbox="allow-scripts allow-same-origin"
         title={`Artefacto: ${type}`}
-        onError={() => setError('Error al cargar el artefacto')}
       />
     </div>
   )

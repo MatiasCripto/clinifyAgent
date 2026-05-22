@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Modal } from '@/components/ui/modal'
 import { Avatar } from '@/components/ui/avatar'
 import { ProgressBar } from '@/components/ui/progress-bar'
@@ -28,6 +28,8 @@ interface ClinicalSession {
   area: string | null
   specialty: string | null
   notes: string | null
+  artifact_type?: string | null
+  artifact_data?: Record<string, unknown> | null
   created_at: string
   professionals?: { full_name: string } | null
 }
@@ -68,6 +70,74 @@ interface PatientDetailProps {
   onDelete?: (id: string) => Promise<void>
 }
 
+// ── Session List sub-component ────────────────────────────────
+function SessionList({ sessions, artifactTypeMap, hasArtifacts, onDelete }: {
+  sessions: ClinicalSession[]
+  artifactTypeMap: Record<string, string>
+  hasArtifacts: boolean
+  onDelete: (id: string) => void
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  return (
+    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+      {sessions.map(s => {
+        const isExpanded = expanded[s.id] ?? false
+        return (
+          <div key={s.id} className="rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]">
+            <button
+              onClick={() => setExpanded(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+              className="w-full text-left p-4 flex items-start justify-between gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-semibold text-[var(--foreground)]">
+                  {new Date(s.date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
+                  {s.specialty && <span className="text-[11.5px] text-[var(--subtle)]">{s.specialty}</span>}
+                  {s.professionals?.full_name && <span className="text-[11.5px] text-[var(--brand)]">Dr/a. {s.professionals.full_name}</span>}
+                  {s.area && <span className="text-[11.5px] text-[var(--subtle)]">{s.area}</span>}
+                  {s.artifact_data?.score != null && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold">
+                      PHQ-9: {String(s.artifact_data.score)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-[var(--muted)] mt-1">
+                  {isExpanded ? '▲ Ocultar detalles' : '▼ Ver detalles'}
+                </p>
+              </div>
+            </button>
+
+            {isExpanded && (
+              <div className="px-4 pb-4 border-t border-[var(--border)]">
+                {s.notes && (
+                  <p className="text-[12px] text-[var(--foreground)] mt-3 whitespace-pre-wrap leading-relaxed">{s.notes}</p>
+                )}
+                {s.specialty && artifactTypeMap[s.specialty] && s.artifact_data && hasArtifacts && (
+                  <div className="mt-3">
+                    <ArtifactViewer
+                      type={artifactTypeMap[s.specialty]}
+                      data={s.artifact_data}
+                      readOnly={true}
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={() => onDelete(s.id)}
+                  className="mt-3 flex items-center gap-1 px-2 py-1 rounded text-[11px] text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 size={12} /> Eliminar sesión
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function PatientDetail({ patient, appointments, npsResponses, onClose, onEdit, onDelete }: PatientDetailProps) {
   const { currentClinic, authUser } = useAuth()
   const [tab, setTab]             = useState<PatientTab>('general')
@@ -93,30 +163,36 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
   const { hasAnalytics, plan } = usePlan()
   const hasArtifacts = plan !== 'starter'
 
-  // Fetch artifact type when professional changes in add session form
+  // Specialties list for dropdown
+  const [specialtiesList, setSpecialtiesList] = useState<Array<{ id: string; name: string; artifact_type: string | null }>>([])
+
   useEffect(() => {
-    if (!addSessionForm.professional_id || !currentClinic) {
+    fetch('/api/settings/specialties')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setSpecialtiesList(data) })
+      .catch(() => {})
+  }, [])
+
+  // Build artifact type lookup map from specialtiesList
+  const artifactTypeMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const s of specialtiesList) {
+      if (s.artifact_type) map[s.name] = s.artifact_type
+    }
+    return map
+  }, [specialtiesList])
+
+  // Fetch artifact type when specialty changes in add session form
+  useEffect(() => {
+    if (!addSessionForm.specialty) {
       setArtifactType(null)
       setArtifactData(null)
       return
     }
-    const sb = createClient()
-    sb.from('professionals')
-      .select('specialty_id')
-      .eq('id', addSessionForm.professional_id)
-      .single()
-      .then(({ data: prof }) => {
-        if (!prof?.specialty_id) { setArtifactType(null); return }
-        sb.from('specialties')
-          .select('artifact_type')
-          .eq('id', prof.specialty_id as string)
-          .single()
-          .then(({ data: spec }) => {
-            setArtifactType((spec?.artifact_type as string) ?? null)
-            setArtifactData(null)
-          })
-      })
-  }, [addSessionForm.professional_id, currentClinic])
+    const match = specialtiesList.find(s => s.name === addSessionForm.specialty)
+    setArtifactType(match?.artifact_type ?? null)
+    setArtifactData(null)
+  }, [addSessionForm.specialty, specialtiesList])
 
   // Documents state
   const [documents, setDocuments]             = useState<PatientDocument[]>([])
@@ -527,7 +603,16 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-medium text-[var(--subtle)] mb-1">Especialidad</label>
-                      <input value={addSessionForm.specialty} onChange={e => setAddSessionForm(f => ({ ...f, specialty: e.target.value }))} placeholder="Ej: Ortodoncia..." className={inputClass} />
+                      <select
+                        value={addSessionForm.specialty}
+                        onChange={e => setAddSessionForm(f => ({ ...f, specialty: e.target.value }))}
+                        className={inputClass}
+                      >
+                        <option value="">Seleccionar especialidad...</option>
+                        {specialtiesList.map(s => (
+                          <option key={s.id} value={s.name}>{s.name}{s.artifact_type ? ' 🔬' : ''}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium text-[var(--subtle)] mb-1">Area</label>
@@ -574,35 +659,13 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
                   <p className="text-[13px] text-[var(--subtle)]">Sin sesiones clinicas registradas.</p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                  {sessions.map(s => (
-                    <div key={s.id} className="rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-semibold text-[var(--foreground)]">
-                            {new Date(s.date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                          </p>
-                          {s.professionals?.full_name && (
-                            <p className="text-[11.5px] text-[var(--brand)] mt-0.5">Dr/a. {s.professionals.full_name}</p>
-                          )}
-                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
-                            {s.specialty && <span className="text-[11.5px] text-[var(--subtle)]">{s.specialty}</span>}
-                            {s.area && <span className="text-[11.5px] text-[var(--subtle)]">{s.area}</span>}
-                          </div>
-                          {s.notes && (
-                            <p className="text-[12px] text-[var(--foreground)] mt-2 whitespace-pre-wrap leading-relaxed">{s.notes}</p>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleDeleteSession(s.id)}
-                          className="p-1.5 rounded text-[var(--subtle)] hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SessionList
+                  sessions={sessions}
+                  artifactTypeMap={artifactTypeMap}
+                  hasArtifacts={hasArtifacts}
+                  onDelete={handleDeleteSession}
+                />
+              )}
               )}
 
               {/* ── Documents section ──────────────────────────── */}
