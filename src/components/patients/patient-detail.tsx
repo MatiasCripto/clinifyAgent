@@ -114,15 +114,20 @@ function SessionList({ sessions, artifactTypeMap, hasArtifacts, onDelete }: {
                 {s.notes && (
                   <p className="text-[12px] text-[var(--foreground)] mt-3 whitespace-pre-wrap leading-relaxed">{s.notes}</p>
                 )}
-                {s.specialty && artifactTypeMap[s.specialty] && s.artifact_data && hasArtifacts && (
-                  <div className="mt-3">
-                    <ArtifactViewer
-                      type={artifactTypeMap[s.specialty]}
-                      data={s.artifact_data}
-                      readOnly={true}
-                    />
-                  </div>
-                )}
+                {s.artifact_data && hasArtifacts && (() => {
+                  const artType = artifactTypeMap[s.specialty ?? '']
+                  if (!artType) return (
+                    <div className="mt-3 p-4 rounded-[10px] bg-[var(--surface)] border border-[var(--border)]">
+                      <p className="text-[12px] text-[var(--muted)]">Datos del artefacto guardados (especialidad sin tipo asignado):</p>
+                      <pre className="text-[11px] text-[var(--foreground)] mt-1 whitespace-pre-wrap">{JSON.stringify(s.artifact_data, null, 2)}</pre>
+                    </div>
+                  )
+                  return (
+                    <div className="mt-3">
+                      <ArtifactViewer type={artType} data={s.artifact_data!} readOnly={true} />
+                    </div>
+                  )
+                })()}
                 <button
                   onClick={() => onDelete(s.id)}
                   className="mt-3 flex items-center gap-1 px-2 py-1 rounded text-[11px] text-red-500 hover:bg-red-50 transition-colors"
@@ -665,7 +670,6 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
                   hasArtifacts={hasArtifacts}
                   onDelete={handleDeleteSession}
                 />
-              )}
               )}
 
               {/* ── Documents section ──────────────────────────── */}
