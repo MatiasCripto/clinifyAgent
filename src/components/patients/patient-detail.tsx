@@ -271,7 +271,7 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
         specialty: addSessionForm.specialty || null,
         area: addSessionForm.area || null,
         notes: addSessionForm.notes || null,
-        artifact_data: artifactData ?? null,
+        artifact_data: artifactType ? (artifactData ?? {}) : null,
       })
       .select('*, professionals(full_name)')
       .single()
