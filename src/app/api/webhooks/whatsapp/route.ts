@@ -981,13 +981,14 @@ export async function POST(req: NextRequest) {
   // ── Process through state machine ───────────────────────────
   // Human takeover check — if conversation is paused by human, skip agent
   if (orgId) {
-    const { data: conv } = await sb.from('wa_conversations')
+    const takeoverSb = createServiceClient()
+    const { data: conv } = await takeoverSb.from('wa_conversations')
       .select('human_takeover, id')
       .eq('phone', phone)
       .maybeSingle()
     if (conv?.human_takeover === true) {
       try {
-        await sb.from('wa_messages').insert({
+        await takeoverSb.from('wa_messages').insert({
           conversation_id: conv.id,
           direction: 'inbound',
           content: text,
@@ -1215,7 +1216,8 @@ export async function POST(req: NextRequest) {
         } else if (a.type === 'human_handoff') {
           // Pause agent for this conversation, enable human takeover
           try {
-            await sb.from('wa_conversations')
+            const handoffSb = createServiceClient()
+            await handoffSb.from('wa_conversations')
               .update({
                 human_takeover: true,
                 human_takeover_at: new Date().toISOString(),
