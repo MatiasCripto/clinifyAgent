@@ -118,6 +118,7 @@ export interface BotConversation {
   lastMessageAt: string
   messageCount: number
   unreadCount: number
+  humanTakeover?: boolean
   messages: BotMessage[]
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Phone, AlertCircle, CheckCheck } from 'lucide-react'
+import { Send, Bot, User, Phone, AlertCircle, CheckCheck, CheckCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BotStateBadge } from './bot-state-badge'
 import { getInitials } from '@/lib/utils/formatters'
@@ -102,7 +102,7 @@ export function ConversationView({ conversation }: Props) {
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0"
-          style={{ background: conversation.state === 'human_handoff' ? '#ef4444' : conversation.isActive ? '#6366f1' : '#9ca3af' }}
+          style={{ background: conversation.humanTakeover ? '#ef4444' : conversation.isActive ? '#6366f1' : '#9ca3af' }}
         >
           {getInitials(conversation.patientName ?? conversation.phone.slice(-4))}
         </div>
@@ -131,16 +131,31 @@ export function ConversationView({ conversation }: Props) {
 
       {/* Human handoff warning */}
       <AnimatePresence>
-        {conversation.state === 'human_handoff' && (
+        {conversation.humanTakeover && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 border-b border-rose-200 text-rose-700 text-[12px]">
-              <AlertCircle size={14} />
-              <span>Este paciente solicitó hablar con un agente humano. El bot está pausado.</span>
+            <div className="flex items-center justify-between gap-3 px-4 py-2 bg-rose-50 border-b border-rose-200 text-rose-700 text-[12px]">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={14} />
+                <span>El bot está pausado. Conversación derivada al equipo.</span>
+              </div>
+              <button
+                onClick={async () => {
+                  const sb = (await import('@/lib/supabase/client')).createClient()
+                  await sb.from('wa_conversations')
+                    .update({ human_takeover: false, human_released_at: new Date().toISOString() })
+                    .eq('id', conversation.id)
+                  location.reload()
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-[8px] bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition-colors flex-shrink-0"
+              >
+                <CheckCircle size={12} />
+                Marcar como resuelto
+              </button>
             </div>
           </motion.div>
         )}
@@ -170,7 +185,7 @@ export function ConversationView({ conversation }: Props) {
             value={manualMsg}
             onChange={e => setManualMsg(e.target.value)}
             placeholder={
-              conversation.state === 'human_handoff'
+              conversation.humanTakeover
                 ? 'Escribir como agente humano...'
                 : 'Enviar mensaje manual (override del bot)...'
             }
@@ -185,7 +200,7 @@ export function ConversationView({ conversation }: Props) {
           </button>
         </form>
         <p className="text-[10px] text-[var(--subtle)] mt-1">
-          {conversation.state === 'human_handoff'
+          {conversation.humanTakeover
             ? '⚠ En modo agente — el bot no responderá automáticamente'
             : 'Los mensajes manuales se envían en nombre de la clínica'
           }

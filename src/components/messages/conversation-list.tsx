@@ -38,7 +38,7 @@ export function ConversationList({ conversations, selectedId, onSelect, filter, 
     const matchFilter =
       filter === 'all' ? true :
       filter === 'active' ? (c.isActive && c.state !== 'human_handoff') :
-      filter === 'handoff' ? c.state === 'human_handoff' :
+      filter === 'handoff' ? c.humanTakeover === true :
       filter === 'done' ? (!c.isActive || c.state === 'closed' || c.state === 'booking_done') : true
     return matchSearch && matchFilter
   })
@@ -91,7 +91,7 @@ export function ConversationList({ conversations, selectedId, onSelect, filter, 
               {/* Avatar */}
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0"
-                style={{ background: conv.state === 'human_handoff' ? '#ef4444' : conv.isActive ? '#6366f1' : '#9ca3af' }}
+                style={{ background: conv.humanTakeover ? '#ef4444' : conv.isActive ? '#6366f1' : '#9ca3af' }}
               >
                 {getInitials(conv.patientName ?? conv.phone.slice(-4))}
               </div>
