@@ -26,17 +26,28 @@ const INJECTED_SCRIPT = `
     }
   });
 
+  // Assign stable keys to elements without id/name
+  var _keyCounter = 0;
+  function ensureKey(el, tag, idx) {
+    if (el.id) return el.id;
+    if (el.name) return el.name;
+    if (el.dataset.clinifyKey) return el.dataset.clinifyKey;
+    var key = 'ck-' + tag + '-' + idx;
+    el.dataset.clinifyKey = key;
+    return key;
+  }
+
   // Serialize current state: all checkboxes, selects, text inputs, data-attrs
   function captureState() {
     var state = {};
-    document.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function(el) {
-      state[el.id || el.name || ('el-' + Math.random().toString(36).slice(2))] = el.checked;
+    document.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function(el, i) {
+      state[ensureKey(el, 'chk', i)] = el.checked;
     });
-    document.querySelectorAll('select').forEach(function(el) {
-      if (el.id || el.name) state[el.id || el.name] = el.value;
+    document.querySelectorAll('select').forEach(function(el, i) {
+      state[ensureKey(el, 'sel', i)] = el.value;
     });
-    document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el) {
-      if (el.id || el.name) state[el.id || el.name] = el.value;
+    document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el, i) {
+      state[ensureKey(el, 'txt', i)] = el.value;
     });
     document.querySelectorAll('[data-artifact-state]').forEach(function(el) {
       try { state[el.dataset.artifactState] = JSON.parse(el.dataset.artifactState); } catch(ex) {}
@@ -73,11 +84,13 @@ const INJECTED_SCRIPT = `
       if (!data) return;
       Object.keys(data).forEach(function(key) {
         try {
-          var el = document.getElementById(key) || document.getElementsByName(key)[0];
-          if (!el) el = document.querySelector('[data-artifact-state="'+key+'"]');
+          var el = document.getElementById(key)
+            || document.getElementsByName(key)[0]
+            || document.querySelector('[data-clinify-key="'+key+'"]')
+            || document.querySelector('[data-artifact-state="'+key+'"]');
           if (el) {
-            if (el.type === 'checkbox' || el.type === 'radio') el.checked = data[key];
-            else if (el.tagName === 'SELECT') el.value = data[key];
+            if (el.type === 'checkbox' || el.type === 'radio') { el.checked = data[key]; el.dispatchEvent(new Event('change', {bubbles:true})); }
+            else if (el.tagName === 'SELECT') { el.value = data[key]; el.dispatchEvent(new Event('change', {bubbles:true})); }
             else el.value = data[key];
           }
         } catch(ex) {}
