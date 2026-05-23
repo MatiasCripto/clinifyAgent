@@ -17,12 +17,12 @@ const INJECTED_SCRIPT = `
   window.__clinifyInjected = true;
 
   // Notify parent we're ready
-  requestAnimationFrame(function() { requestAnimationFrame(function() { window.parent.postMessage({ type: 'artifact:ready' }, '*'); }); });
+  requestAnimationFrame(function() { requestAnimationFrame(function() { console.log('[Artifact HTML] emitiendo artifact:ready'); window.parent.postMessage({ type: 'artifact:ready' }, '*'); }); });
 
   // Listen for load/restore from parent
   window.addEventListener('message', function(e) {
     if (e.data?.type === 'artifact:load' && e.data.data) {
-      try { if (typeof loadState === 'function') loadState(e.data.data); } catch(ex) {}
+      console.log('[Artifact HTML] loadState llamado con:', e.data.data); try { if (typeof loadState === 'function') loadState(e.data.data); } catch(ex) {}
     }
   });
 
@@ -126,6 +126,11 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
       .catch(err => { setError('Error al cargar el artefacto'); setLoading(false) })
   }, [type])
 
+  useEffect(() => {
+    console.log('[Artifact] readOnly:', readOnly)
+    console.log('[Artifact] data recibida:', data)
+  }, [readOnly, data])
+
   // Fallback timeout
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 3000)
@@ -134,10 +139,12 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
 
   const handleMessage = useCallback((e: MessageEvent) => {
     if (!e.data || typeof e.data !== 'object') return
+    console.log('[Artifact] mensaje recibido del iframe:', e.data)
 
     if (e.data.type === 'artifact:ready') {
       setLoading(false)
       if (readOnly && data) {
+        console.log('[Artifact] mandando artifact:load con:', data)
         iframeRef.current?.contentWindow?.postMessage({ type: 'artifact:load', data }, '*')
       }
     }
