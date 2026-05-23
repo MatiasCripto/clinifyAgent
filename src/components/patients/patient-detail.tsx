@@ -115,6 +115,7 @@ function SessionList({ sessions, artifactTypeMap, hasArtifacts, onDelete }: {
                   <p className="text-[12px] text-[var(--foreground)] mt-3 whitespace-pre-wrap leading-relaxed">{s.notes}</p>
                 )}
                 {s.artifact_data && hasArtifacts && (() => {
+                  console.log('[SessionList] session artifact_data from DB:', s.artifact_data)
                   const artType = artifactTypeMap[s.specialty ?? '']
                   if (!artType) return (
                     <div className="mt-3 p-4 rounded-[10px] bg-[var(--surface)] border border-[var(--border)]">
@@ -273,6 +274,7 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
         notes: addSessionForm.notes || null,
         artifact_data: artifactType ? (artifactData ?? {}) : null,
       })
+      console.log('[handleAddSession] artifactType:', artifactType, '| artifactData:', artifactData)
       .select('*, professionals(full_name)')
       .single()
     if (data) setSessions(prev => [data as ClinicalSession, ...prev])
