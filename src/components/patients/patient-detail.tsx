@@ -261,6 +261,7 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
     e.preventDefault()
     if (!currentClinic || !p) return
     setSavingSession(true)
+    console.log('[handleAddSession] artifactType:', artifactType, '| artifactData:', artifactData)
     const sb = createClient()
     const { data } = await sb
       .from('clinical_sessions')
@@ -274,7 +275,6 @@ export function PatientDetail({ patient, appointments, npsResponses, onClose, on
         notes: addSessionForm.notes || null,
         artifact_data: artifactType ? (artifactData ?? {}) : null,
       })
-      console.log('[handleAddSession] artifactType:', artifactType, '| artifactData:', artifactData)
       .select('*, professionals(full_name)')
       .single()
     if (data) setSessions(prev => [data as ClinicalSession, ...prev])
