@@ -17,7 +17,7 @@ const INJECTED_SCRIPT = `
   window.__clinifyInjected = true;
 
   // Notify parent we're ready
-  window.parent.postMessage({ type: 'artifact:ready' }, '*');
+  requestAnimationFrame(function() { requestAnimationFrame(function() { window.parent.postMessage({ type: 'artifact:ready' }, '*'); }); });
 
   // Listen for load/restore from parent
   window.addEventListener('message', function(e) {
@@ -151,16 +151,6 @@ export function ArtifactViewer({ type, data, readOnly = false, onDataChange }: P
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
   }, [handleMessage])
-
-  // Send data in readOnly mode after load
-  useEffect(() => {
-    if (!loading && readOnly && data) {
-      const t = setTimeout(() => {
-        iframeRef.current?.contentWindow?.postMessage({ type: 'artifact:load', data }, '*')
-      }, 500)
-      return () => clearTimeout(t)
-    }
-  }, [loading, readOnly, data])
 
   if (!type) {
     return (
