@@ -128,7 +128,12 @@ document.getElementById('state-btns').addEventListener('click', e => {
   if (!btn || selected === null) return;
   teeth[selected] = btn.dataset.state;
   selectTooth(selected);
+          notifyChange({ teeth });
 });
 
 renderAll();
+	function loadState(data) {
+	  if (data?.teeth) { Object.assign(teeth, data.teeth); renderAll(); }
+	}
+	window.getState = function() { return { teeth: teeth }; };
 </script>

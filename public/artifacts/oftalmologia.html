@@ -152,4 +152,16 @@ function renderList(){
   list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Hallazgos registrados</div>'+
     entries.map(([z,p])=>`<div class="oft-row"><span>${z}</span><span class="oft-badge" style="background:${PATOL[p].color}">${PATOL[p].label}</span></div>`).join('');
 }
+function loadState(data) {
+  if (data?.zoneData) {
+    Object.assign(zoneData, data.zoneData);
+    Object.entries(zoneData).forEach(([z, p]) => {
+      const id = zoneIds[z];
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('fill', p === 'normal' && defaultFill[id] ? defaultFill[id] : PATOL[p]?.fill || defaultFill[id]);
+    });
+    renderList();
+  }
+}
+window.getState = function() { return { zoneData: zoneData }; };
 </script>

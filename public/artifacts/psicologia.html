@@ -207,6 +207,24 @@ function renderHistorial() {
     }).join('');
 }
 
+function loadState(data) {
+  if (data?.respPHQ9) {
+    data.respPHQ9.forEach((v, i) => { if (v !== null) respPHQ9[i] = v; });
+    renderQuestions(PHQ9, respPHQ9, 'phq9-questions', 'phq9');
+    if (respPHQ9.some(r => r !== null)) calcScore('phq9');
+  }
+  if (data?.respGAD7) {
+    data.respGAD7.forEach((v, i) => { if (v !== null) respGAD7[i] = v; });
+    renderQuestions(GAD7, respGAD7, 'gad7-questions', 'gad7');
+    if (respGAD7.some(r => r !== null)) calcScore('gad7');
+  }
+  if (data?.historial) {
+    data.historial.forEach(h => historial.push(h));
+    renderHistorial();
+  }
+}
+window.getState = function() { return { respPHQ9: respPHQ9, respGAD7: respGAD7, historial: historial }; };
+
 renderQuestions(PHQ9, respPHQ9, 'phq9-questions', 'phq9');
 renderQuestions(GAD7, respGAD7, 'gad7-questions', 'gad7');
 document.getElementById('fecha-hist').valueAsDate = new Date();

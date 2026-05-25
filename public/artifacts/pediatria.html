@@ -296,6 +296,27 @@ function renderRegList() {
     ).join('');
 }
 
+function loadState(data) {
+  if (data?.sexo) document.getElementById('sexo').value = data.sexo;
+  if (data?.edad !== undefined) document.getElementById('edad').value = data.edad;
+  if (data?.talla) document.getElementById('talla').value = data.talla;
+  if (data?.peso) document.getElementById('peso').value = data.peso;
+  if (data?.registros) {
+    data.registros.forEach(r => registros.push(r));
+    renderRegList();
+  }
+  if (data?.edad !== undefined || data?.talla || data?.peso) evaluar();
+}
+window.getState = function() {
+  return {
+    sexo: document.getElementById('sexo').value,
+    edad: document.getElementById('edad').value,
+    talla: document.getElementById('talla').value,
+    peso: document.getElementById('peso').value,
+    registros: registros
+  };
+};
+
 document.getElementById('fecha-reg').valueAsDate = new Date();
 renderChart();
 </script>

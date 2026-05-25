@@ -130,4 +130,14 @@ function renderList(){
   list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Lesiones registradas</div>'+
     entries.map(([m,s])=>`<div class="kine-row"><span>${m}</span><span class="kine-badge" style="background:${ESTADO[s].color}">${ESTADO[s].label}</span></div>`).join('');
 }
+function loadState(data) {
+  if (data?.muscleData) {
+    Object.assign(muscleData, data.muscleData);
+    Object.entries(muscleData).forEach(([m, s]) => {
+      const el = document.getElementById(muscleIds[m]); if(el) el.setAttribute('fill', ESTADO[s].fill);
+    });
+    renderList();
+  }
+}
+window.getState = function() { return { muscleData: muscleData }; };
 </script>

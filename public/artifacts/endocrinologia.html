@@ -427,6 +427,45 @@ function renderRegList() {
   });
 }
 
+function loadState(data) {
+  if (data?.glucosa !== undefined) document.getElementById('glucosa').value = data.glucosa;
+  if (data?.hba1c !== undefined) document.getElementById('hba1c').value = data.hba1c;
+  if (data?.glucosaPP !== undefined) document.getElementById('glucosa-pp').value = data.glucosaPP;
+  if (data?.insulina !== undefined) document.getElementById('insulina').value = data.insulina;
+  if (data?.tsh !== undefined) document.getElementById('tsh').value = data.tsh;
+  if (data?.t4l !== undefined) document.getElementById('t4l').value = data.t4l;
+  if (data?.t3l !== undefined) document.getElementById('t3l').value = data.t3l;
+  if (data?.antitpo !== undefined) document.getElementById('antitpo').value = data.antitpo;
+  if (data?.colTotal !== undefined) document.getElementById('col-total').value = data.colTotal;
+  if (data?.ldl !== undefined) document.getElementById('ldl').value = data.ldl;
+  if (data?.hdl !== undefined) document.getElementById('hdl').value = data.hdl;
+  if (data?.trig !== undefined) document.getElementById('trig').value = data.trig;
+  if ([data?.glucosa, data?.hba1c, data?.glucosaPP, data?.insulina].some(v => v !== undefined)) evalGlucosa();
+  if ([data?.tsh, data?.t4l, data?.t3l, data?.antitpo].some(v => v !== undefined)) evalTiroides();
+  if ([data?.colTotal, data?.ldl, data?.hdl, data?.trig].some(v => v !== undefined)) evalLipidos();
+  if (data?.registros) {
+    data.registros.forEach(r => registros.push(r));
+    renderRegList();
+  }
+}
+window.getState = function() {
+  return {
+    glucosa: document.getElementById('glucosa').value,
+    hba1c: document.getElementById('hba1c').value,
+    glucosaPP: document.getElementById('glucosa-pp').value,
+    insulina: document.getElementById('insulina').value,
+    tsh: document.getElementById('tsh').value,
+    t4l: document.getElementById('t4l').value,
+    t3l: document.getElementById('t3l').value,
+    antitpo: document.getElementById('antitpo').value,
+    colTotal: document.getElementById('col-total').value,
+    ldl: document.getElementById('ldl').value,
+    hdl: document.getElementById('hdl').value,
+    trig: document.getElementById('trig').value,
+    registros: registros
+  };
+};
+
 document.getElementById('fecha-reg').valueAsDate = new Date();
 ['tiroides','lipidos','registro'].forEach(t => document.getElementById('tab-' + t).style.display = 'none');
 </script>

@@ -138,4 +138,14 @@ function renderList() {
       </div>
     `).join('');
 }
+function loadState(data) {
+  if (data?.boneData) {
+    Object.assign(boneData, data.boneData);
+    Object.entries(boneData).forEach(([b, d]) => {
+      const el = document.getElementById(boneToId[b]); if(el) el.setAttribute('fill', DIAG[d].fill);
+    });
+    renderList();
+  }
+}
+window.getState = function() { return { boneData: boneData }; };
 </script>

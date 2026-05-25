@@ -95,6 +95,14 @@ function fmtDate(d) {
   return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+function loadState(data) {
+  if (data?.fum) {
+    document.getElementById('fum-input').value = data.fum;
+    document.getElementById('fum-input').dispatchEvent(new Event('change'));
+  }
+}
+window.getState = function() { return { fum: document.getElementById('fum-input').value }; };
+
 document.getElementById('fum-input').addEventListener('change', function() {
   const fum = new Date(this.value + 'T00:00:00');
   if (isNaN(fum)) return;
