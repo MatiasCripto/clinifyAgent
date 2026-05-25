@@ -37,9 +37,10 @@ const INJECTED_SCRIPT = `
     return key;
   }
 
-  // Serialize current state: all checkboxes, selects, text inputs, data-attrs
+  // Serialize current state: all checkboxes, selects, text inputs, SVG data, data-attrs
   function captureState() {
     var state = {};
+    // Standard form elements
     document.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function(el, i) {
       state[ensureKey(el, 'chk', i)] = el.checked;
     });
@@ -49,6 +50,21 @@ const INJECTED_SCRIPT = `
     document.querySelectorAll('input[type=text], input[type=number], textarea').forEach(function(el, i) {
       state[ensureKey(el, 'txt', i)] = el.value;
     });
+    // SVG elements with interactive state (paths, circles, rects with data-* or classes)
+    document.querySelectorAll('svg [data-clinify-key], svg path[class], svg circle[class], svg rect[class], svg polygon[class], svg ellipse[class], svg [data-tooth], svg [data-selected]').forEach(function(el, i) {
+      var classes = Array.from(el.classList).join(' ');
+      if (classes) state[ensureKey(el, 'svg', i) + '-cls'] = classes;
+      // Capture custom data attributes
+      Object.keys(el.dataset || {}).forEach(function(k) {
+        if (k !== 'clinifyKey') state[ensureKey(el, 'svg', i) + '-' + k] = el.dataset[k];
+      });
+    });
+    // Any element with .selected, .active, .checked classes
+    document.querySelectorAll('.selected, .active, .checked, [aria-checked]').forEach(function(el, i) {
+      state[ensureKey(el, 'state', i) + '-sel'] = true;
+      if (el.getAttribute('aria-checked')) state[ensureKey(el, 'state', i) + '-aria'] = el.getAttribute('aria-checked');
+    });
+    // Explicit data-artifact-state
     document.querySelectorAll('[data-artifact-state]').forEach(function(el) {
       try { state[el.dataset.artifactState] = JSON.parse(el.dataset.artifactState); } catch(ex) {}
     });
@@ -91,7 +107,23 @@ const INJECTED_SCRIPT = `
           if (el) {
             if (el.type === 'checkbox' || el.type === 'radio') { el.checked = data[key]; el.dispatchEvent(new Event('change', {bubbles:true})); }
             else if (el.tagName === 'SELECT') { el.value = data[key]; el.dispatchEvent(new Event('change', {bubbles:true})); }
-            else el.value = data[key];
+            else if (key.endsWith('-cls')) {
+              // Restore class list
+              var classes = String(data[key]).split(/\\s+/);
+              classes.forEach(function(c) { el.classList.add(c); });
+            } else if (key.endsWith('-sel') || key.endsWith('-aria')) {
+              // Class/aria state markers
+              if (data[key] === true) el.classList.add('selected');
+              if (key.endsWith('-aria') && data[key]) el.setAttribute('aria-checked', data[key]);
+            } else if (key.indexOf('-') > 0 && el.dataset) {
+              // Custom data attribute: key like "ck-svg-0-toothId" → set data-tooth-id
+              var parts = key.split('-');
+              var attrName = parts.slice(3).map(function(p, i) {
+                return i === 0 ? p : p.charAt(0).toUpperCase() + p.slice(1);
+              }).join('');
+              if (attrName && attrName.length > 0) el.dataset[attrName] = String(data[key]);
+            } else el.value = data[key];
+            el.dispatchEvent(new Event('change', {bubbles:true}));
           }
         } catch(ex) {}
       });
