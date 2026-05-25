@@ -71,12 +71,18 @@ const INJECTED_SCRIPT = `
     return state;
   }
 
-  // Debounced change notifier
+  // Debounced change notifier — tries artifact's getState() first, falls back to DOM capture
   var timer = null;
+  function getArtifactState() {
+    if (typeof window.getState === 'function') {
+      try { var s = window.getState(); if (s && Object.keys(s).length > 0) return s; } catch(e) {}
+    }
+    return captureState();
+  }
   function notify() {
     clearTimeout(timer);
     timer = setTimeout(function() {
-      var state = captureState();
+      var state = getArtifactState();
       window.parent.postMessage({ type: 'artifact:change', data: state }, '*');
     }, 300);
   }
@@ -91,7 +97,7 @@ const INJECTED_SCRIPT = `
 
   // Expose for custom artifacts that have their own state logic
   window.notifyChange = function(data) {
-    window.parent.postMessage({ type: 'artifact:change', data: data || captureState() }, '*');
+    window.parent.postMessage({ type: 'artifact:change', data: data || getArtifactState() }, '*');
   };
 
   // Override loadState from artifact
