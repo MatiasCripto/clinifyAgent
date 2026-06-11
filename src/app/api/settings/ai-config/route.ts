@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createAdminClient } from '@/lib/supabase/server-admin'
+import { encrypt } from '@/lib/crypto/encryption'
 
 async function getProfile() {
   const cookieStore = await cookies()
@@ -51,10 +52,16 @@ export async function PUT(req: NextRequest) {
   const currentSettings = (org?.settings as Record<string, unknown>) ?? {}
   const currentAi = (currentSettings.ai as Record<string, unknown> | undefined) ?? {}
 
-  // If apiKey not provided, keep the existing one
-  const finalApiKey = apiKey || (currentAi.apiKey as string)
+  // If apiKey not provided, keep the existing (already encrypted) one
+  const existingApiKey = currentAi.apiKey as string | undefined
+  let finalApiKey = apiKey || existingApiKey
   if (!finalApiKey) {
     return NextResponse.json({ error: 'Falta apiKey (no hay una guardada)' }, { status: 400 })
+  }
+
+  // Encrypt new apiKey values that aren't already encrypted
+  if (apiKey && !apiKey.startsWith('enc:')) {
+    finalApiKey = encrypt(apiKey)
   }
 
   // Merge AI config

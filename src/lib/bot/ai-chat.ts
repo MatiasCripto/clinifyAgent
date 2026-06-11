@@ -10,6 +10,7 @@
 // availability come from the context built by the webhook handler.
 
 import { createServiceClient } from '@/lib/supabase/service'
+import { decrypt } from '@/lib/crypto/encryption'
 
 interface AiConfig {
   provider: string
@@ -430,7 +431,10 @@ async function loadConfig(orgId?: string): Promise<AiConfig | null> {
       .single()
 
     const ai = (org?.settings as Record<string, unknown> | null)?.ai as AiConfig | undefined
-    if (ai?.apiKey && ai?.provider) return ai
+    if (ai?.apiKey && ai?.provider) {
+      // Decrypt apiKey if it was stored encrypted (backward compatible with plain text)
+      return { ...ai, apiKey: decrypt(ai.apiKey) }
+    }
   } catch { /* fallback */ }
   return null
 }
