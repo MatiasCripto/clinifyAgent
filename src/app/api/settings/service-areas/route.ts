@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
-
-async function getProfile() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('organization_id, role').eq('id', user.id).single()
-  return profile
-}
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 
 // GET — list service areas for a professional
 export async function GET(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const professionalId = req.nextUrl.searchParams.get('professional_id')
   if (!professionalId) return NextResponse.json({ error: 'professional_id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { data, error } = await admin
     .from('service_areas')
     .select('*')
@@ -39,8 +23,9 @@ export async function GET(req: NextRequest) {
 
 // POST — create or update a service area
 export async function POST(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const body = await req.json()
   const { id, professional_id, name, duration_min } = body
@@ -48,8 +33,6 @@ export async function POST(req: NextRequest) {
   if (!professional_id || !name?.trim()) {
     return NextResponse.json({ error: 'Faltan campos: professional_id, name' }, { status: 400 })
   }
-
-  const admin = createAdminClient()
 
   if (id) {
     // Update existing
@@ -100,13 +83,13 @@ export async function POST(req: NextRequest) {
 
 // DELETE — soft-delete a service area
 export async function DELETE(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { error } = await admin
     .from('service_areas')
     .update({ is_active: false })

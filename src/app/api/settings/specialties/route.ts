@@ -1,21 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
-
-async function getProfile() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('organization_id, role').eq('id', user.id).single()
-  return profile
-}
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 
 function isAdmin(role: string) {
   return ['superadmin', 'owner', 'admin'].includes(role)
@@ -23,11 +7,10 @@ function isAdmin(role: string) {
 
 // GET — list specialties (default + org custom)
 export async function GET() {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const admin = createAdminClient()
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
-  // Fetch default specialties + org custom
   const { data, error } = await admin
     .from('specialties')
     .select('*')
@@ -36,12 +19,10 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Deduplicate by name — prefer default entries (they have artifact_type)
   const seen = new Map<string, Record<string, unknown>>()
   for (const s of (data ?? [])) {
     const name = s.name as string
     const existing = seen.get(name)
-    // Keep default over custom, or first one if both are same type
     if (!existing || (s.is_default && !existing.is_default)) {
       seen.set(name, s as unknown as Record<string, unknown>)
     }
@@ -52,14 +33,14 @@ export async function GET() {
 
 // POST — create custom specialty for the org
 export async function POST(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isAdmin(auth.profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { profile, admin } = auth
 
   const { name, artifact_type } = await req.json()
   if (!name?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { data, error } = await admin
     .from('specialties')
     .insert({
@@ -77,14 +58,14 @@ export async function POST(req: NextRequest) {
 
 // PATCH — update name or artifact_type of a custom specialty
 export async function PATCH(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isAdmin(auth.profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { profile, admin } = auth
 
   const { id, name, artifact_type } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const updates: Record<string, unknown> = {}
   if (name !== undefined) updates.name = name.trim()
   if (artifact_type !== undefined) updates.artifact_type = artifact_type
@@ -104,15 +85,14 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE — remove custom specialty (default ones are protected)
 export async function DELETE(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!isAdmin(profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isAdmin(auth.profile.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const { profile, admin } = auth
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
-  // Only allow deleting custom (non-default) specialties belonging to the org
   const { error } = await admin
     .from('specialties')
     .delete()

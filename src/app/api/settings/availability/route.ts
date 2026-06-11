@@ -1,33 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
-
-async function getProfile() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('organization_id, role').eq('id', user.id).single()
-  return profile
-}
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 
 // GET — fetch weekly schedule for a professional
 export async function GET(request: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const professionalId = request.nextUrl.searchParams.get('professional_id')
   const weekStart = request.nextUrl.searchParams.get('week_start')
   if (!professionalId) return NextResponse.json({ error: 'professional_id requerido' }, { status: 400 })
   if (!weekStart) return NextResponse.json({ error: 'week_start requerido (YYYY-MM-DD, lunes)' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { data: prof } = await admin.from('professionals').select('organization_id').eq('id', professionalId).single()
   if (!prof || prof.organization_id !== profile.organization_id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -47,8 +31,9 @@ export async function GET(request: NextRequest) {
 
 // POST — upsert weekly schedule
 export async function POST(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const body = await req.json()
   const { professional_id, clinic_id, week_start_date, schedule } = body
@@ -57,7 +42,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan campos: professional_id, week_start_date, schedule' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
   const { data: prof } = await admin.from('professionals').select('organization_id').eq('id', professional_id).single()
   if (!prof || prof.organization_id !== profile.organization_id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -98,15 +82,15 @@ export async function POST(req: NextRequest) {
 
 // DELETE — remove weekly schedule
 export async function DELETE(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const { professional_id, week_start_date } = await req.json()
   if (!professional_id || !week_start_date) {
     return NextResponse.json({ error: 'Faltan professional_id y week_start_date' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
   const { data: prof } = await admin.from('professionals').select('organization_id').eq('id', professional_id).single()
   if (!prof || prof.organization_id !== profile.organization_id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

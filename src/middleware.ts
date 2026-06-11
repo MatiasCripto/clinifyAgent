@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const publicRoutes = [
   '/login',
   '/register',
+  '/onboarding',
   '/api/webhooks',
   '/api/health',
   '/api/jobs',

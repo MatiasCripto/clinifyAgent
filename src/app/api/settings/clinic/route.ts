@@ -1,33 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 import { PLAN_LIMITS } from '@/lib/plans/limits'
-
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
 
 // GET — list clinics for the user's organization
 export async function GET() {
-  const user = await getAuthenticatedUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const admin = createAdminClient()
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('organization_id, role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   // Superadmin sees all clinics, others see only their org
   const query = admin.from('clinics').select('id, name, organization_id').eq('is_active', true)
@@ -40,17 +19,9 @@ export async function GET() {
 
 // PUT — update clinic fields
 export async function PUT(req: NextRequest) {
-  const user = await getAuthenticatedUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const admin = createAdminClient()
-
-  // Verify user has owner/admin role in their org
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('organization_id, role')
-    .eq('id', user.id)
-    .single()
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   if (!profile || !['superadmin', 'owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -85,16 +56,9 @@ export async function PUT(req: NextRequest) {
 
 // POST — create a new clinic (checks plan limits)
 export async function POST(req: NextRequest) {
-  const user = await getAuthenticatedUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const admin = createAdminClient()
-
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('organization_id, role')
-    .eq('id', user.id)
-    .single()
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   if (!profile || !['superadmin', 'owner', 'admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

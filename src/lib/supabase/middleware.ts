@@ -24,7 +24,8 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthRoute    = request.nextUrl.pathname.startsWith('/login') ||
-                         request.nextUrl.pathname.startsWith('/register')
+                         request.nextUrl.pathname.startsWith('/register') ||
+                         request.nextUrl.pathname.startsWith('/onboarding')
   const isSuperadmin   = request.nextUrl.pathname.startsWith('/superadmin')
   const isApiRoute     = request.nextUrl.pathname.startsWith('/api/')
 

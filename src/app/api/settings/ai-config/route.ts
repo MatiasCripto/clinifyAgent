@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 import { encrypt } from '@/lib/crypto/encryption'
-
-async function getProfile() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('organization_id, role').eq('id', user.id).single()
-  return profile
-}
 
 // GET — read AI config from organization settings
 export async function GET() {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
-  const admin = createAdminClient()
   const { data: org } = await admin.from('organizations').select('settings').eq('id', profile.organization_id).single()
 
   const ai = (org?.settings as Record<string, unknown> | null)?.ai ?? {}
@@ -32,11 +16,12 @@ export async function GET() {
 
 // PUT — save AI config to organization settings
 export async function PUT(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (profile.role !== 'owner' && profile.role !== 'admin') {
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (auth.profile.role !== 'owner' && auth.profile.role !== 'admin') {
     return NextResponse.json({ error: 'Solo admins pueden configurar la IA' }, { status: 403 })
   }
+  const { profile, admin } = auth
 
   const body = await req.json()
   const { provider, apiKey, model } = body
@@ -44,8 +29,6 @@ export async function PUT(req: NextRequest) {
   if (!provider) {
     return NextResponse.json({ error: 'Falta provider' }, { status: 400 })
   }
-
-  const admin = createAdminClient()
 
   // Get current settings
   const { data: org } = await admin.from('organizations').select('settings').eq('id', profile.organization_id).single()

@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { createAdminClient } from '@/lib/supabase/server-admin'
+import { getAuthProfile } from '@/lib/supabase/get-profile'
 import { canAddProfessional } from '@/lib/plans/limits'
 import type { OrgPlan } from '@/lib/types'
 
-async function getProfile() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: profile } = await admin.from('profiles').select('organization_id, role').eq('id', user.id).single()
-  return profile
-}
-
 // GET — list professionals
 export async function GET() {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const admin = createAdminClient()
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
   let query = admin
     .from('professionals')
     .select('*, specialty:specialties(*)')
@@ -38,13 +22,12 @@ export async function GET() {
 
 // POST — create professional
 export async function POST(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const { full_name, specialty_id, phone, email, color } = await req.json()
   if (!full_name?.trim()) return NextResponse.json({ error: 'Nombre requerido' }, { status: 400 })
-
-  const admin = createAdminClient()
 
   // Plan limit check
   const { data: org } = await admin.from('organizations').select('plan').eq('id', profile.organization_id).single()
@@ -73,13 +56,13 @@ export async function POST(req: NextRequest) {
 
 // PATCH — update professional
 export async function PATCH(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const { id, full_name, specialty_id, phone, email, bio, license_number } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { data, error } = await admin
     .from('professionals')
     .update({
@@ -101,8 +84,9 @@ export async function PATCH(req: NextRequest) {
 
 // PUT — link a professional to an auth user (create account for staff)
 export async function PUT(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
   if (profile.role !== 'owner' && profile.role !== 'admin') {
     return NextResponse.json({ error: 'Solo admins pueden crear usuarios' }, { status: 403 })
   }
@@ -112,8 +96,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan campos: professional_id, email, password' }, { status: 400 })
   }
   if (password.length < 8) return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres' }, { status: 400 })
-
-  const admin = createAdminClient()
 
   // Verify professional belongs to same org
   const { data: prof } = await admin.from('professionals').select('id, organization_id, profile_id, full_name').eq('id', professional_id).single()
@@ -161,13 +143,13 @@ export async function PUT(req: NextRequest) {
 
 // DELETE (soft) — deactivate professional
 export async function DELETE(req: NextRequest) {
-  const profile = await getProfile()
-  if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await getAuthProfile()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { profile, admin } = auth
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { error } = await admin
     .from('professionals')
     .update({ is_active: false })
