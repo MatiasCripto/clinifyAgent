@@ -1,31 +1,43 @@
+<div class="artifact-header">
+  <div class="artifact-icon">👁️</div>
+  <div>
+    <div class="artifact-title">Diagrama ocular</div>
+    <div class="artifact-sub">Registro oftalmológico</div>
+  </div>
+</div>
 
-<h2 class="sr-only">Diagrama ocular interactivo para oftalmología con registro de patologías por zona</h2>
 <style>
-.oft-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
-.eyes-row{display:flex;gap:32px;justify-content:center;margin-bottom:12px}
+body { background:transparent; margin:0; padding:12px; font-family:system-ui,sans-serif; }
+.artifact-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.artifact-icon { width:32px; height:32px; border-radius:8px; background:var(--color-background-secondary); display:flex; align-items:center; justify-content:center; font-size:17px; }
+.artifact-title { font-size:14px; font-weight:500; color:var(--color-text-primary); }
+.artifact-sub { font-size:11px; color:var(--color-text-tertiary); margin-top:1px; }
+.oft-wrap{display:flex;flex-direction:column;align-items:center}
+.legend{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--color-text-secondary)}
+.leg-dot{width:9px;height:9px;border-radius:50%}
+.eyes-row{display:flex;gap:24px;justify-content:center;margin-bottom:10px}
 .eye-col{display:flex;flex-direction:column;align-items:center;gap:4px}
-.eye-label{font-size:11px;color:var(--color-text-tertiary)}
+.eye-label{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em}
 .zone{cursor:pointer;transition:opacity 0.15s}
 .zone:hover{opacity:0.65}
-.oft-legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
-.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
-.leg-dot{width:10px;height:10px;border-radius:50%}
-.oft-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
-.path-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:320px}
-.path-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.oft-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:12px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
+.path-btns{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:10px 0;max-width:320px}
+.path-btn{font-size:10px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
 .path-btn:hover{background:var(--color-background-secondary)}
 .path-btn.active{color:#fff;border-color:transparent}
 .oft-list{margin-top:10px;width:100%;max-width:320px}
-.oft-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
-.oft-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
-.acuity-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0;width:100%;max-width:320px}
+.oft-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-primary)}
+.oft-badge{font-size:10px;padding:2px 8px;border-radius:6px;color:#fff}
+.acuity-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;width:100%;max-width:320px}
 .acuity-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px}
-.acuity-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
-.acuity-val{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.acuity-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px}
+.acuity-val{font-size:15px;font-weight:500;color:var(--color-text-primary)}
+.pio-alert{display:none;background:#FEF2F2;border:0.5px solid #F7C1C1;border-radius:6px;padding:6px 10px;margin-top:4px;font-size:11px;color:#A32D2D;text-align:center}
 </style>
 
 <div class="oft-wrap">
-  <div class="oft-legend">
+  <div class="legend">
     <div class="leg-item"><div class="leg-dot" style="background:#B5D4F4"></div>Normal</div>
     <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Inflamación</div>
     <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Opacidad</div>
@@ -35,14 +47,12 @@
 
   <div class="eyes-row">
     <div class="eye-col">
-      <div class="eye-label">Ojo derecho</div>
+      <div class="eye-label">Ojo derecho (OD)</div>
       <svg width="130" height="130" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
         <ellipse id="od-sclera" class="zone" cx="65" cy="65" rx="58" ry="45" fill="#F8F4EE" stroke="#C4B89A" stroke-width="1.2" onclick="selectZone('OD - Esclera')"/>
         <ellipse id="od-cornea" class="zone" cx="65" cy="65" rx="32" ry="32" fill="#B5D4F4" stroke="#378ADD" stroke-width="1" onclick="selectZone('OD - Córnea')"/>
         <ellipse id="od-iris" class="zone" cx="65" cy="65" rx="22" ry="22" fill="#5DCAA5" stroke="#0F6E56" stroke-width="1" onclick="selectZone('OD - Iris')"/>
         <circle id="od-pupil" class="zone" cx="65" cy="65" r="10" fill="#2C2C2A" onclick="selectZone('OD - Pupila')"/>
-        <ellipse id="od-retina-s" class="zone" cx="65" cy="30" rx="18" ry="10" fill="transparent" stroke="transparent" onclick="selectZone('OD - Retina superior')"/>
-        <ellipse id="od-retina-i" class="zone" cx="65" cy="100" rx="18" ry="10" fill="transparent" stroke="transparent" onclick="selectZone('OD - Retina inferior')"/>
         <circle id="od-macula" class="zone" cx="78" cy="58" r="6" fill="#FAC775" stroke="#EF9F27" stroke-width="1" onclick="selectZone('OD - Mácula')"/>
         <circle id="od-nervio" class="zone" cx="42" cy="65" r="7" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectZone('OD - Nervio óptico')"/>
         <text x="78" y="56" font-size="7" fill="#854F0B" text-anchor="middle" pointer-events="none">M</text>
@@ -50,7 +60,7 @@
       </svg>
     </div>
     <div class="eye-col">
-      <div class="eye-label">Ojo izquierdo</div>
+      <div class="eye-label">Ojo izquierdo (OI)</div>
       <svg width="130" height="130" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
         <ellipse id="oi-sclera" class="zone" cx="65" cy="65" rx="58" ry="45" fill="#F8F4EE" stroke="#C4B89A" stroke-width="1.2" onclick="selectZone('OI - Esclera')"/>
         <ellipse id="oi-cornea" class="zone" cx="65" cy="65" rx="32" ry="32" fill="#B5D4F4" stroke="#378ADD" stroke-width="1" onclick="selectZone('OI - Córnea')"/>
@@ -67,19 +77,21 @@
   <div class="acuity-grid">
     <div class="acuity-box">
       <div class="acuity-label">Agudeza OD</div>
-      <input type="text" id="av-od" placeholder="20/20" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+      <input type="text" id="av-od" placeholder="20/20" style="font-size:15px;font-weight:500;border:none;background:transparent;padding:0;width:100%;color:var(--color-text-primary)" />
     </div>
     <div class="acuity-box">
       <div class="acuity-label">Agudeza OI</div>
-      <input type="text" id="av-oi" placeholder="20/20" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+      <input type="text" id="av-oi" placeholder="20/20" style="font-size:15px;font-weight:500;border:none;background:transparent;padding:0;width:100%;color:var(--color-text-primary)" />
     </div>
     <div class="acuity-box">
       <div class="acuity-label">PIO OD (mmHg)</div>
-      <input type="number" id="pio-od" placeholder="15" min="0" max="80" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+      <input type="number" id="pio-od" placeholder="15" min="0" max="80" oninput="checkPIO()" style="font-size:15px;font-weight:500;border:none;background:transparent;padding:0;width:100%;color:var(--color-text-primary)" />
+      <div class="pio-alert" id="pio-alert-od">⚠ PIO elevada — evaluar glaucoma</div>
     </div>
     <div class="acuity-box">
       <div class="acuity-label">PIO OI (mmHg)</div>
-      <input type="number" id="pio-oi" placeholder="15" min="0" max="80" style="width:100%;font-size:15px;font-weight:500;border:none;background:transparent;padding:0;color:var(--color-text-primary)" />
+      <input type="number" id="pio-oi" placeholder="15" min="0" max="80" oninput="checkPIO()" style="font-size:15px;font-weight:500;border:none;background:transparent;padding:0;width:100%;color:var(--color-text-primary)" />
+      <div class="pio-alert" id="pio-alert-oi">⚠ PIO elevada — evaluar glaucoma</div>
     </div>
   </div>
 
@@ -114,6 +126,14 @@ const defaultFill={
   'oi-sclera':'#F8F4EE','oi-cornea':'#B5D4F4','oi-iris':'#5DCAA5','oi-pupil':'#2C2C2A','oi-macula':'#FAC775','oi-nervio':'#E8DFD0',
 };
 let sel=null;
+
+function checkPIO() {
+  [['pio-od','pio-alert-od'],['pio-oi','pio-alert-oi']].forEach(([inputId, alertId]) => {
+    const val = parseFloat(document.getElementById(inputId).value);
+    document.getElementById(alertId).style.display = val > 21 ? 'block' : 'none';
+  });
+}
+
 function selectZone(name){
   sel=name;
   const cur=zoneData[name];
@@ -138,30 +158,28 @@ document.getElementById('path-btns').addEventListener('click',e=>{
   else zoneData[sel]=p;
   const id=zoneIds[sel];
   const el=document.getElementById(id);
-  if(el){
-    const f=p==='normal'?defaultFill[id]:PATOL[p].fill;
-    el.setAttribute('fill',f);
-  }
-  selectZone(sel);
-  renderList();
+  if(el){const f=p==='normal'?defaultFill[id]:PATOL[p].fill;el.setAttribute('fill',f);}
+  selectZone(sel);renderList();
 });
 function renderList(){
   const list=document.getElementById('oft-list');
   const entries=Object.entries(zoneData);
   if(!entries.length){list.innerHTML='';return;}
-  list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Hallazgos registrados</div>'+
+  list.innerHTML='<div class="section-title">Hallazgos registrados</div>'+
     entries.map(([z,p])=>`<div class="oft-row"><span>${z}</span><span class="oft-badge" style="background:${PATOL[p].color}">${PATOL[p].label}</span></div>`).join('');
 }
 function loadState(data) {
   if (data?.zoneData) {
     Object.assign(zoneData, data.zoneData);
-    Object.entries(zoneData).forEach(([z, p]) => {
-      const id = zoneIds[z];
-      const el = document.getElementById(id);
-      if (el) el.setAttribute('fill', p === 'normal' && defaultFill[id] ? defaultFill[id] : PATOL[p]?.fill || defaultFill[id]);
-    });
+    Object.entries(zoneData).forEach(([z, p]) => { const id=zoneIds[z]; const el=document.getElementById(id); if(el) el.setAttribute('fill', p==='normal'&&defaultFill[id]?defaultFill[id]:PATOL[p]?.fill||defaultFill[id]); });
     renderList();
   }
 }
 window.getState = function() { return { zoneData: zoneData }; };
+
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => { document.documentElement.style.setProperty(key, val); });
+  }
+});
 </script>

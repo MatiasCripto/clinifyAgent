@@ -53,6 +53,6 @@ INSERT INTO specialties (name, artifact_type, is_default) VALUES
   ('Pediatría',      'pediatria',    true),
   ('Cardiología',    null,           true),
   ('Neurología',     null,           true),
-  ('Endocrinología', null,           true),
+  ('Endocrinología', 'endocrinologia', true),
   ('Fonoaudiología', null,           true)
 ON CONFLICT DO NOTHING;

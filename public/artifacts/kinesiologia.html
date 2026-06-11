@@ -1,26 +1,37 @@
+<div class="artifact-header">
+  <div class="artifact-icon">💪</div>
+  <div>
+    <div class="artifact-title">Mapa muscular</div>
+    <div class="artifact-sub">Registro de hallazgos kinesiológicos</div>
+  </div>
+</div>
 
-<h2 class="sr-only">Mapa muscular interactivo para kinesiología con grupos musculares seleccionables</h2>
 <style>
-.kine-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
-.muscle{cursor:pointer;transition:opacity 0.15s}
+body { background:transparent; margin:0; padding:12px; font-family:system-ui,sans-serif; }
+.artifact-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.artifact-icon { width:32px; height:32px; border-radius:8px; background:var(--color-background-secondary); display:flex; align-items:center; justify-content:center; font-size:17px; }
+.artifact-title { font-size:14px; font-weight:500; color:var(--color-text-primary); }
+.artifact-sub { font-size:11px; color:var(--color-text-tertiary); margin-top:1px; }
+.kine-wrap{display:flex;flex-direction:column;align-items:center}
+.legend{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--color-text-secondary)}
+.leg-dot{width:9px;height:9px;border-radius:50%}
+.views-label{font-size:10px;color:var(--color-text-tertiary);text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.views-row{display:flex;gap:20px;justify-content:center}
+.muscle{cursor:pointer;transition:opacity 0.15s;fill:#C0DD97;stroke:#639922;stroke-width:0.8}
 .muscle:hover{opacity:0.65}
-.kine-legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
-.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
-.leg-dot{width:10px;height:10px;border-radius:50%}
-.kine-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
-.kine-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:320px}
-.kine-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.kine-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:12px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:320px}
+.kine-btns{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:10px 0;max-width:320px}
+.kine-btn{font-size:10px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
 .kine-btn:hover{background:var(--color-background-secondary)}
 .kine-btn.active{color:#fff;border-color:transparent}
 .kine-list{margin-top:10px;width:100%;max-width:320px}
-.kine-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
-.kine-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
-.views-label{font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-bottom:4px}
-.views-row{display:flex;gap:24px;justify-content:center}
+.kine-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-primary)}
+.kine-badge{font-size:10px;padding:2px 8px;border-radius:6px;color:#fff}
 </style>
 
 <div class="kine-wrap">
-  <div class="kine-legend">
+  <div class="legend">
     <div class="leg-item"><div class="leg-dot" style="background:#C0DD97"></div>Normal</div>
     <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Contractura</div>
     <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Distensión</div>
@@ -32,32 +43,32 @@
     <div>
       <div class="views-label">Anterior</div>
       <svg width="130" height="300" viewBox="0 0 130 300" xmlns="http://www.w3.org/2000/svg">
-        <ellipse id="m-pectoral-l" class="muscle" cx="52" cy="68" rx="20" ry="16" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Pectoral izquierdo')"/>
-        <ellipse id="m-pectoral-r" class="muscle" cx="78" cy="68" rx="20" ry="16" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Pectoral derecho')"/>
-        <ellipse id="m-deltoid-l" class="muscle" cx="22" cy="58" rx="14" ry="18" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Deltoides izquierdo')"/>
-        <ellipse id="m-deltoid-r" class="muscle" cx="108" cy="58" rx="14" ry="18" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Deltoides derecho')"/>
-        <ellipse id="m-bicep-l" class="muscle" cx="16" cy="100" rx="10" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Bíceps izquierdo')"/>
-        <ellipse id="m-bicep-r" class="muscle" cx="114" cy="100" rx="10" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Bíceps derecho')"/>
-        <rect id="m-abdomen" class="muscle" x="44" y="88" width="42" height="52" rx="8" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Abdomen')"/>
-        <ellipse id="m-cuad-l" class="muscle" cx="48" cy="190" rx="18" ry="35" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Cuádriceps izquierdo')"/>
-        <ellipse id="m-cuad-r" class="muscle" cx="82" cy="190" rx="18" ry="35" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Cuádriceps derecho')"/>
-        <ellipse id="m-tibia-l" class="muscle" cx="46" cy="255" rx="12" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Tibial izquierdo')"/>
-        <ellipse id="m-tibia-r" class="muscle" cx="84" cy="255" rx="12" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Tibial derecho')"/>
-        <ellipse id="m-trap" class="muscle" cx="65" cy="42" rx="28" ry="12" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Trapecio')"/>
+        <path id="m-pectoral-l" class="muscle" d="M52,55 C40,55 34,62 34,72 C34,80 40,85 46,88 C50,84 52,78 52,72 Z" onclick="selectMuscle('Pectoral izquierdo')"/>
+        <path id="m-pectoral-r" class="muscle" d="M78,55 C90,55 96,62 96,72 C96,80 90,85 84,88 C80,84 78,78 78,72 Z" onclick="selectMuscle('Pectoral derecho')"/>
+        <path id="m-deltoid-l" class="muscle" d="M22,50 C14,54 12,64 14,74 C16,80 22,82 28,80 C26,72 26,62 22,50 Z" onclick="selectMuscle('Deltoides izquierdo')"/>
+        <path id="m-deltoid-r" class="muscle" d="M108,50 C116,54 118,64 116,74 C114,80 108,82 102,80 C104,72 104,62 108,50 Z" onclick="selectMuscle('Deltoides derecho')"/>
+        <path id="m-bicep-l" class="muscle" d="M18,86 C14,92 12,108 16,118 C20,122 26,120 28,116 C26,108 24,96 18,86 Z" onclick="selectMuscle('Bíceps izquierdo')"/>
+        <path id="m-bicep-r" class="muscle" d="M112,86 C116,92 118,108 114,118 C110,122 104,120 102,116 C104,108 106,96 112,86 Z" onclick="selectMuscle('Bíceps derecho')"/>
+        <path id="m-abdomen" class="muscle" d="M46,92 C44,92 42,96 42,104 L42,134 C42,142 46,144 50,144 L80,144 C84,144 88,142 88,134 L88,104 C88,96 86,92 84,92 Z" onclick="selectMuscle('Abdomen')"/>
+        <path id="m-trap" class="muscle" d="M38,44 C38,38 46,34 65,34 C84,34 92,38 92,44 C92,48 84,50 65,50 C46,50 38,48 38,44 Z" onclick="selectMuscle('Trapecio')"/>
+        <path id="m-cuad-l" class="muscle" d="M44,152 C38,158 34,180 36,210 C38,218 44,220 52,218 C50,200 48,180 44,152 Z" onclick="selectMuscle('Cuádriceps izquierdo')"/>
+        <path id="m-cuad-r" class="muscle" d="M86,152 C92,158 96,180 94,210 C92,218 86,220 78,218 C80,200 82,180 86,152 Z" onclick="selectMuscle('Cuádriceps derecho')"/>
+        <path id="m-tibia-l" class="muscle" d="M42,226 C38,232 36,254 38,266 C42,272 48,272 52,268 C48,258 46,242 42,226 Z" onclick="selectMuscle('Tibial izquierdo')"/>
+        <path id="m-tibia-r" class="muscle" d="M88,226 C92,232 94,254 92,266 C88,272 82,272 78,268 C82,258 84,242 88,226 Z" onclick="selectMuscle('Tibial derecho')"/>
       </svg>
     </div>
     <div>
       <div class="views-label">Posterior</div>
       <svg width="130" height="300" viewBox="0 0 130 300" xmlns="http://www.w3.org/2000/svg">
-        <ellipse id="m-trap-p" class="muscle" cx="65" cy="50" rx="35" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Trapecio posterior')"/>
-        <ellipse id="m-dorsal-l" class="muscle" cx="44" cy="88" rx="22" ry="28" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Dorsal izquierdo')"/>
-        <ellipse id="m-dorsal-r" class="muscle" cx="86" cy="88" rx="22" ry="28" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Dorsal derecho')"/>
-        <ellipse id="m-gluteo-l" class="muscle" cx="48" cy="148" rx="20" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Glúteo izquierdo')"/>
-        <ellipse id="m-gluteo-r" class="muscle" cx="82" cy="148" rx="20" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Glúteo derecho')"/>
-        <ellipse id="m-isq-l" class="muscle" cx="46" cy="200" rx="16" ry="30" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Isquiotibial izquierdo')"/>
-        <ellipse id="m-isq-r" class="muscle" cx="84" cy="200" rx="16" ry="30" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Isquiotibial derecho')"/>
-        <ellipse id="m-gemelo-l" class="muscle" cx="46" cy="258" rx="13" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Gemelo izquierdo')"/>
-        <ellipse id="m-gemelo-r" class="muscle" cx="84" cy="258" rx="13" ry="22" fill="#C0DD97" stroke="#639922" stroke-width="1" onclick="selectMuscle('Gemelo derecho')"/>
+        <path id="m-trap-p" class="muscle" d="M30,44 C30,34 40,28 65,28 C90,28 100,34 100,44 C100,52 90,56 65,56 C40,56 30,52 30,44 Z" onclick="selectMuscle('Trapecio posterior')"/>
+        <path id="m-dorsal-l" class="muscle" d="M44,58 C38,64 34,80 34,96 C34,108 40,114 46,116 C50,108 50,94 48,76 C46,66 44,60 44,58 Z" onclick="selectMuscle('Dorsal izquierdo')"/>
+        <path id="m-dorsal-r" class="muscle" d="M86,58 C92,64 96,80 96,96 C96,108 90,114 84,116 C80,108 80,94 82,76 C84,66 86,60 86,58 Z" onclick="selectMuscle('Dorsal derecho')"/>
+        <path id="m-gluteo-l" class="muscle" d="M44,128 C36,132 32,144 34,156 C36,164 42,166 50,164 C48,156 46,144 44,128 Z" onclick="selectMuscle('Glúteo izquierdo')"/>
+        <path id="m-gluteo-r" class="muscle" d="M86,128 C94,132 98,144 96,156 C94,164 88,166 80,164 C82,156 84,144 86,128 Z" onclick="selectMuscle('Glúteo derecho')"/>
+        <path id="m-isq-l" class="muscle" d="M44,172 C38,178 34,200 36,220 C40,226 48,226 52,222 C48,210 46,192 44,172 Z" onclick="selectMuscle('Isquiotibial izquierdo')"/>
+        <path id="m-isq-r" class="muscle" d="M86,172 C92,178 96,200 94,220 C90,226 82,226 78,222 C82,210 84,192 86,172 Z" onclick="selectMuscle('Isquiotibial derecho')"/>
+        <path id="m-gemelo-l" class="muscle" d="M42,232 C36,240 34,260 38,272 C42,278 50,278 54,274 C50,264 48,250 42,232 Z" onclick="selectMuscle('Gemelo izquierdo')"/>
+        <path id="m-gemelo-r" class="muscle" d="M88,232 C94,240 96,260 92,272 C88,278 80,278 76,274 C80,264 82,250 88,232 Z" onclick="selectMuscle('Gemelo derecho')"/>
       </svg>
     </div>
   </div>
@@ -86,10 +97,10 @@ const muscleIds={
   'Pectoral izquierdo':'m-pectoral-l','Pectoral derecho':'m-pectoral-r',
   'Deltoides izquierdo':'m-deltoid-l','Deltoides derecho':'m-deltoid-r',
   'Bíceps izquierdo':'m-bicep-l','Bíceps derecho':'m-bicep-r',
-  'Abdomen':'m-abdomen',
+  'Abdomen':'m-abdomen','Trapecio':'m-trap',
   'Cuádriceps izquierdo':'m-cuad-l','Cuádriceps derecho':'m-cuad-r',
   'Tibial izquierdo':'m-tibia-l','Tibial derecho':'m-tibia-r',
-  'Trapecio':'m-trap','Trapecio posterior':'m-trap-p',
+  'Trapecio posterior':'m-trap-p',
   'Dorsal izquierdo':'m-dorsal-l','Dorsal derecho':'m-dorsal-r',
   'Glúteo izquierdo':'m-gluteo-l','Glúteo derecho':'m-gluteo-r',
   'Isquiotibial izquierdo':'m-isq-l','Isquiotibial derecho':'m-isq-r',
@@ -127,17 +138,23 @@ function renderList(){
   const list=document.getElementById('kine-list');
   const entries=Object.entries(muscleData);
   if(!entries.length){list.innerHTML='';return;}
-  list.innerHTML='<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Lesiones registradas</div>'+
+  list.innerHTML='<div class="section-title">Lesiones registradas</div>'+
     entries.map(([m,s])=>`<div class="kine-row"><span>${m}</span><span class="kine-badge" style="background:${ESTADO[s].color}">${ESTADO[s].label}</span></div>`).join('');
 }
 function loadState(data) {
   if (data?.muscleData) {
     Object.assign(muscleData, data.muscleData);
-    Object.entries(muscleData).forEach(([m, s]) => {
-      const el = document.getElementById(muscleIds[m]); if(el) el.setAttribute('fill', ESTADO[s].fill);
-    });
+    Object.entries(muscleData).forEach(([m, s]) => { const el=document.getElementById(muscleIds[m]); if(el) el.setAttribute('fill', ESTADO[s].fill); });
     renderList();
   }
 }
 window.getState = function() { return { muscleData: muscleData }; };
+
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => {
+      document.documentElement.style.setProperty(key, val);
+    });
+  }
+});
 </script>

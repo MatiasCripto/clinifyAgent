@@ -1,112 +1,85 @@
-<h2 class="sr-only">Curva de crecimiento pediátrica OMS con seguimiento de talla y peso por edad</h2>
+<div class="artifact-header">
+  <div class="artifact-icon">👶</div>
+  <div>
+    <div class="artifact-title">Curva de crecimiento</div>
+    <div class="artifact-sub">Referencia OMS · Z-scores</div>
+  </div>
+</div>
+
 <style>
-.ped-wrap{padding:1rem 0}
-.ped-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
-.ped-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
-.input-row{display:flex;gap:10px;margin-bottom:10px}
+body{background:transparent;margin:0;padding:12px;font-family:system-ui,sans-serif}
+.artifact-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:12px;border-bottom:.5px solid var(--color-border-tertiary)}
+.artifact-icon{width:32px;height:32px;border-radius:8px;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;font-size:17px}
+.artifact-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.artifact-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:1px}
+.ped-card{background:var(--color-background-primary);border:.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:12px 16px;margin-bottom:10px}
+.field-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px;display:block}
+input,select{background:var(--color-background-secondary);border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);padding:5px 8px;font-size:12px;width:100%;box-sizing:border-box}
+.input-row{display:flex;gap:10px;margin-bottom:8px}
 .input-row>div{flex:1}
-.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
 .stat-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
-.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
-.stat-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
-.stat-sub{font-size:11px}
-.section-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:14px 0 8px}
-.reg-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
-.reg-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
-.tabs{display:flex;gap:6px;margin-bottom:12px}
-.tab{font-size:12px;padding:5px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
-.tab.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:transparent}
+.stat-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px}
+.stat-val{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:10px}
+.tab{font-size:12px;padding:5px 14px;border-radius:var(--border-radius-md);border:.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.tab.active{background:#7C3AED;color:#fff;border-color:transparent}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.section-title{font-size:10px;font-weight:500;color:var(--color-text-tertiary);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 6px}
+.reg-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-primary)}
+.reg-badge{font-size:9px;padding:2px 7px;border-radius:6px;color:#fff}
+.btn-primary{background:#7C3AED;color:#fff;border:none;border-radius:var(--border-radius-md);padding:5px 14px;font-size:11px;cursor:pointer}
+.btn-primary:hover{background:#6D28D9}
 </style>
 
-<div class="ped-wrap">
-  <div class="ped-card">
-    <div class="input-row">
-      <div>
-        <div class="ped-label">Sexo</div>
-        <select id="sexo" style="width:100%" onchange="evaluar()">
-          <option value="M">Masculino</option>
-          <option value="F">Femenino</option>
-        </select>
-      </div>
-      <div>
-        <div class="ped-label">Edad (meses)</div>
-        <input type="number" id="edad" placeholder="24" min="0" max="228" style="width:100%" oninput="evaluar()"/>
-      </div>
-    </div>
-    <div class="input-row">
-      <div>
-        <div class="ped-label">Talla (cm)</div>
-        <input type="number" id="talla" placeholder="86" min="40" max="200" step="0.1" style="width:100%" oninput="evaluar()"/>
-      </div>
-      <div>
-        <div class="ped-label">Peso (kg)</div>
-        <input type="number" id="peso" placeholder="12" min="1" max="150" step="0.1" style="width:100%" oninput="evaluar()"/>
-      </div>
-    </div>
+<div class="ped-card">
+  <div class="input-row">
+    <div><span class="field-label">Sexo</span><select id="sexo" onchange="evaluar()"><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
+    <div><span class="field-label">Edad (meses)</span><input type="number" id="edad" placeholder="24" min="0" max="228" oninput="evaluar()"/></div>
   </div>
-
-  <div id="result-section" style="display:none">
-    <div class="stats-grid">
-      <div class="stat-box">
-        <div class="stat-label">Talla para la edad</div>
-        <div class="stat-val" id="talla-zsc">—</div>
-        <div class="stat-sub" id="talla-cat" style="font-weight:500">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Peso para la edad</div>
-        <div class="stat-val" id="peso-zsc">—</div>
-        <div class="stat-sub" id="peso-cat" style="font-weight:500">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">IMC para la edad</div>
-        <div class="stat-val" id="imc-zsc">—</div>
-        <div class="stat-sub" id="imc-cat" style="font-weight:500">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Percentil estimado</div>
-        <div class="stat-val" id="percentil">—</div>
-        <div class="stat-sub">talla/edad</div>
-      </div>
-    </div>
+  <div class="input-row">
+    <div><span class="field-label">Talla (cm)</span><input type="number" id="talla" placeholder="86" min="40" max="200" step="0.1" oninput="evaluar()"/></div>
+    <div><span class="field-label">Peso (kg)</span><input type="number" id="peso" placeholder="12" min="1" max="150" step="0.1" oninput="evaluar()"/></div>
   </div>
-
-  <div class="tabs">
-    <button class="tab active" onclick="setTab('talla',this)">Talla</button>
-    <button class="tab" onclick="setTab('peso',this)">Peso</button>
+  <div class="input-row">
+    <div><span class="field-label">Perímetro cefálico (cm) — ≤24 meses</span><input type="number" id="pc" placeholder="46" min="30" max="55" step="0.1" oninput="evaluar()"/></div>
+    <div><span id="pc-result" style="align-self:flex-end;font-size:11px;color:var(--color-text-secondary);padding-bottom:6px">—</span></div>
   </div>
-
-  <div class="ped-card">
-    <div class="ped-label" id="chart-label">Curva de talla (cm)</div>
-    <canvas id="ped-chart" height="160"></canvas>
-  </div>
-
-  <div class="section-title">Registrar medición</div>
-  <div class="ped-card">
-    <div class="input-row">
-      <div>
-        <div class="ped-label">Fecha</div>
-        <input type="date" id="fecha-reg" style="width:100%"/>
-      </div>
-      <div>
-        <div class="ped-label">Edad (meses)</div>
-        <input type="number" id="reg-edad" placeholder="24" min="0" max="228" style="width:100%"/>
-      </div>
-    </div>
-    <div class="input-row">
-      <div>
-        <div class="ped-label">Talla (cm)</div>
-        <input type="number" id="reg-talla" placeholder="86" step="0.1" style="width:100%"/>
-      </div>
-      <div>
-        <div class="ped-label">Peso (kg)</div>
-        <input type="number" id="reg-peso" placeholder="12" step="0.1" style="width:100%"/>
-      </div>
-    </div>
-    <button onclick="addReg()" style="width:100%">Agregar medición</button>
-  </div>
-
-  <div id="reg-list"></div>
 </div>
+
+<div id="result-section" style="display:none">
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-label">Talla/Edad</div><div class="stat-val" id="talla-zsc">—</div><div class="stat-sub" id="talla-cat" style="font-weight:500">—</div></div>
+    <div class="stat-box"><div class="stat-label">Peso/Edad</div><div class="stat-val" id="peso-zsc">—</div><div class="stat-sub" id="peso-cat" style="font-weight:500">—</div></div>
+    <div class="stat-box"><div class="stat-label">IMC/Edad</div><div class="stat-val" id="imc-zsc">—</div><div class="stat-sub" id="imc-cat" style="font-weight:500">—</div></div>
+    <div class="stat-box"><div class="stat-label">Percentil (talla)</div><div class="stat-val" id="percentil">—</div><div class="stat-sub">talla/edad</div></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab('talla',this)">Talla</button>
+  <button class="tab" onclick="setTab('peso',this)">Peso</button>
+</div>
+
+<div class="ped-card">
+  <div class="stat-label" id="chart-label">Curva de talla (cm)</div>
+  <canvas id="ped-chart" height="140"></canvas>
+</div>
+
+<div class="section-title">Registrar medición</div>
+<div class="ped-card">
+  <div class="input-row">
+    <div><span class="field-label">Fecha</span><input type="date" id="fecha-reg"/></div>
+    <div><span class="field-label">Edad (meses)</span><input type="number" id="reg-edad" placeholder="24" min="0" max="228"/></div>
+  </div>
+  <div class="input-row">
+    <div><span class="field-label">Talla (cm)</span><input type="number" id="reg-talla" placeholder="86" step="0.1"/></div>
+    <div><span class="field-label">Peso (kg)</span><input type="number" id="reg-peso" placeholder="12" step="0.1"/></div>
+  </div>
+  <button class="btn-primary" onclick="addReg()" style="width:100%">Agregar medición</button>
+</div>
+
+<div id="reg-list"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>
@@ -114,10 +87,26 @@ const registros = [];
 let chart = null;
 let tabActual = 'talla';
 
+// OMS median (P50) references
 const OMS_TALLA_M = {0:49.9,3:61.4,6:67.6,9:72.3,12:75.7,18:82.3,24:87.8,36:96.1,48:103.3,60:110.0,72:116.0,84:121.7,96:127.3,108:132.6,120:137.5,132:142.1,144:146.6,156:151.0,168:155.2,180:158.7,192:161.3,204:163.2,216:164.7,228:165.3};
 const OMS_TALLA_F = {0:49.1,3:59.8,6:65.7,9:70.1,12:74.0,18:80.7,24:86.4,36:95.1,48:102.7,60:109.4,72:115.5,84:121.5,96:127.3,108:133.0,120:138.6,132:144.1,144:149.2,156:153.9,168:157.7,180:160.5,192:162.3,204:163.4,216:164.0,228:164.3};
 const OMS_PESO_M = {0:3.3,3:6.4,6:7.9,9:9.2,12:9.6,18:11.1,24:12.2,36:14.3,48:16.3,60:18.3,72:20.5,84:22.9,96:25.4,108:28.1,120:31.2};
 const OMS_PESO_F = {0:3.2,3:5.8,6:7.3,9:8.2,12:8.9,18:10.2,24:11.5,36:13.9,48:16.1,60:18.2,72:20.2,84:22.4,96:25.0,108:28.2,120:32.0};
+
+// OMS standard deviations (real, not estimated) by age and sex
+const SD_TALLA_M = {0:2.0,3:2.1,6:2.3,9:2.4,12:2.5,18:2.7,24:2.9,36:3.1,48:3.6,60:4.0,72:4.3,84:4.6,96:4.9,108:5.1,120:5.3,132:5.6,144:5.8,156:6.0,168:6.1,180:6.2,192:6.2,204:6.2,216:6.2,228:6.2};
+const SD_TALLA_F = {0:1.9,3:2.1,6:2.2,9:2.3,12:2.4,18:2.6,24:2.8,36:3.1,48:3.5,60:3.9,72:4.3,84:4.5,96:4.8,108:5.0,120:5.2,132:5.4,144:5.6,156:5.8,168:5.9,180:6.0,192:6.0,204:6.0,216:6.0,228:6.0};
+const SD_PESO_M = {0:0.4,3:0.7,6:0.9,9:1.0,12:1.0,18:1.1,24:1.3,36:1.5,48:1.7,60:2.1,72:2.4,84:2.8,96:3.3,108:3.8,120:4.2};
+const SD_PESO_F = {0:0.4,3:0.6,6:0.8,9:0.9,12:1.0,18:1.1,24:1.2,36:1.5,48:1.7,60:2.0,72:2.4,84:2.8,96:3.3,108:3.9,120:4.3};
+
+// OMS head circumference references (cm) for 0-24 months
+const PC_M = {0:34.5,1:37.1,3:40.5,6:43.4,9:45.0,12:46.1,15:46.8,18:47.4,21:47.8,24:48.3};
+const PC_F = {0:33.9,1:36.6,3:39.5,6:42.2,9:43.8,12:44.9,15:45.6,18:46.2,21:46.7,24:47.1};
+const SD_PC_M = {0:1.3,3:1.3,6:1.3,9:1.3,12:1.3,15:1.3,18:1.3,21:1.3,24:1.3};
+const SD_PC_F = {0:1.3,3:1.3,6:1.3,9:1.3,12:1.3,15:1.3,18:1.3,21:1.3,24:1.3};
+
+// Approximate IMC median by age for reference
+const IMC_REF = {0:13.3,3:16.4,6:17.3,9:17.0,12:16.8,18:16.2,24:15.9,36:15.7,48:15.5,60:15.3,72:15.3,84:15.4,96:15.6,108:15.9,120:16.2};
 
 function getRef(tabla, edad) {
   const keys = Object.keys(tabla).map(Number).sort((a,b)=>a-b);
@@ -128,22 +117,20 @@ function getRef(tabla, edad) {
   return tabla[lo] + t * (tabla[hi] - tabla[lo]);
 }
 
-function zScore(val, ref, sd) {
-  return ((val - ref) / sd).toFixed(2);
-}
+function zScore(val, ref, sd) { return ((val - ref) / sd).toFixed(2); }
 
 function zCat(z, tipo) {
   const n = parseFloat(z);
   if (tipo === 'talla') {
-    if (n < -3)      return {label:'Talla muy baja', color:'#A32D2D'};
-    if (n < -2)      return {label:'Talla baja', color:'#854F0B'};
-    if (n < 2)       return {label:'Normal', color:'#3B6D11'};
+    if (n < -3) return {label:'Talla muy baja', color:'#A32D2D'};
+    if (n < -2) return {label:'Talla baja', color:'#854F0B'};
+    if (n < 2)  return {label:'Normal', color:'#3B6D11'};
     return {label:'Talla alta', color:'#185FA5'};
   }
-  if (n < -3)        return {label:'Desnutrición severa', color:'#A32D2D'};
-  if (n < -2)        return {label:'Bajo peso', color:'#854F0B'};
-  if (n < 1)         return {label:'Normal', color:'#3B6D11'};
-  if (n < 2)         return {label:'Posible sobrepeso', color:'#854F0B'};
+  if (n < -3) return {label:'Desnutrición severa', color:'#A32D2D'};
+  if (n < -2) return {label:'Bajo peso', color:'#854F0B'};
+  if (n < 1)  return {label:'Normal', color:'#3B6D11'};
+  if (n < 2)  return {label:'Posible sobrepeso', color:'#854F0B'};
   return {label:'Obesidad', color:'#A32D2D'};
 }
 
@@ -162,40 +149,72 @@ function evaluar() {
   const edad = parseInt(document.getElementById('edad').value);
   const talla = parseFloat(document.getElementById('talla').value);
   const peso = parseFloat(document.getElementById('peso').value);
+  const pc = parseFloat(document.getElementById('pc').value);
   const sexo = document.getElementById('sexo').value;
-  if (!edad && edad !== 0) return;
-
-  const tallaTbl = sexo === 'M' ? OMS_TALLA_M : OMS_TALLA_F;
-  const pesoTbl = sexo === 'M' ? OMS_PESO_M : OMS_PESO_F;
+  if (edad === undefined || isNaN(edad)) return;
 
   document.getElementById('result-section').style.display = 'block';
 
+  // Talla z-score with real SD
   if (talla) {
+    const tallaTbl = sexo === 'M' ? OMS_TALLA_M : OMS_TALLA_F;
+    const sdTbl = sexo === 'M' ? SD_TALLA_M : SD_TALLA_F;
     const ref = getRef(tallaTbl, edad);
-    const z = zScore(talla, ref, ref * 0.06);
+    const sd = getRef(sdTbl, edad);
+    const z = zScore(talla, ref, sd);
     const cat = zCat(z, 'talla');
     document.getElementById('talla-zsc').textContent = `Z: ${z}`;
     document.getElementById('talla-cat').textContent = cat.label;
     document.getElementById('talla-cat').style.color = cat.color;
     document.getElementById('percentil').textContent = zToPercentil(z);
   }
+
+  // Peso z-score with real SD
   if (peso) {
+    const pesoTbl = sexo === 'M' ? OMS_PESO_M : OMS_PESO_F;
+    const sdTbl = sexo === 'M' ? SD_PESO_M : SD_PESO_F;
     const ref = getRef(pesoTbl, Math.min(edad, 120));
-    const z = zScore(peso, ref, ref * 0.12);
+    const sd = getRef(sdTbl, Math.min(edad, 120));
+    const z = zScore(peso, ref, sd);
     const cat = zCat(z, 'peso');
     document.getElementById('peso-zsc').textContent = `Z: ${z}`;
     document.getElementById('peso-cat').textContent = cat.label;
     document.getElementById('peso-cat').style.color = cat.color;
   }
+
+  // IMC z-score with OMS reference (SD ≈ 10% of median)
   if (talla && peso) {
     const imc = peso / ((talla/100)**2);
-    const imcRef = 16 + (edad/228) * 2;
-    const z = zScore(imc, imcRef, imcRef * 0.1);
+    const imcRef = getRef(IMC_REF, Math.min(edad, 120));
+    const imcSd = imcRef * 0.1;
+    const z = zScore(imc, imcRef, imcSd);
     const cat = zCat(z, 'imc');
     document.getElementById('imc-zsc').textContent = imc.toFixed(1);
     document.getElementById('imc-cat').textContent = cat.label;
     document.getElementById('imc-cat').style.color = cat.color;
   }
+
+  // Head circumference (PC) for ≤24 months
+  if (pc && edad <= 24) {
+    const pcTbl = sexo === 'M' ? PC_M : PC_F;
+    const pcSdTbl = sexo === 'M' ? SD_PC_M : SD_PC_F;
+    const ref = getRef(pcTbl, edad);
+    const sd = getRef(pcSdTbl, edad);
+    const z = parseFloat(zScore(pc, ref, sd));
+    let cat;
+    if (z < -2) cat = 'Microcefalia';
+    else if (z > 2) cat = 'Macrocefalia';
+    else cat = 'Normal';
+    const color = (z < -2 || z > 2) ? '#A32D2D' : '#3B6D11';
+    document.getElementById('pc-result').textContent = `PC Z: ${z.toFixed(2)} — ${cat}`;
+    document.getElementById('pc-result').style.color = color;
+  } else if (pc && edad > 24) {
+    document.getElementById('pc-result').textContent = 'PC: solo referencia ≤24 meses';
+    document.getElementById('pc-result').style.color = 'var(--color-text-tertiary)';
+  } else {
+    document.getElementById('pc-result').textContent = '—';
+  }
+
   renderChart();
 }
 
@@ -212,16 +231,11 @@ function renderChart() {
   const tbl = tabActual === 'talla'
     ? (sexo === 'M' ? OMS_TALLA_M : OMS_TALLA_F)
     : (sexo === 'M' ? OMS_PESO_M : OMS_PESO_F);
-
   const maxEdad = tabActual === 'talla' ? 228 : 120;
   const refKeys = Object.keys(tbl).map(Number).filter(k => k <= maxEdad).sort((a,b)=>a-b);
   const refLabels = refKeys.map(k => k + 'm');
   const refData = refKeys.map(k => tbl[k]);
-
-  const puntos = registros.filter(r => r.edad <= maxEdad).map(r => ({
-    x: r.edad,
-    y: tabActual === 'talla' ? r.talla : r.peso
-  })).filter(p => p.y);
+  const puntos = registros.filter(r => r.edad <= maxEdad).map(r => ({ x: r.edad, y: tabActual === 'talla' ? r.talla : r.peso })).filter(p => p.y);
 
   if (chart) chart.destroy();
   const ctx = document.getElementById('ped-chart').getContext('2d');
@@ -230,38 +244,14 @@ function renderChart() {
     data: {
       labels: refLabels,
       datasets: [
-        {
-          label: 'Referencia OMS P50',
-          data: refData,
-          borderColor: 'rgba(99,153,34,0.5)',
-          borderWidth: 1.5,
-          borderDash: [4,3],
-          pointRadius: 0,
-          fill: false,
-          tension: 0.3,
-        },
-        {
-          label: 'Paciente',
-          data: puntos,
-          borderColor: '#378ADD',
-          backgroundColor: 'rgba(55,138,221,0.1)',
-          borderWidth: 2,
-          pointRadius: 5,
-          pointBackgroundColor: '#378ADD',
-          fill: false,
-          tension: 0.3,
-          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
-          showLine: true,
-        }
+        { label: 'Ref. OMS P50', data: refData, borderColor: 'rgba(99,153,34,0.5)', borderWidth: 1.5, borderDash: [4,3], pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'Paciente', data: puntos, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.1)', borderWidth: 2, pointRadius: 5, pointBackgroundColor: '#378ADD', fill: false, tension: 0.3, parsing: { xAxisKey: 'x', yAxisKey: 'y' }, showLine: true }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 16 } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-        y: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { font: { size: 11 } } }
-      }
+      plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 14 } } },
+      scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { grid: { color: 'rgba(128,128,128,0.1)' }, ticks: { font: { size: 9 } } } }
     }
   });
 }
@@ -271,12 +261,10 @@ function addReg() {
   const edad = parseInt(document.getElementById('reg-edad').value);
   const talla = parseFloat(document.getElementById('reg-talla').value);
   const peso = parseFloat(document.getElementById('reg-peso').value);
-  if (!fecha || (!edad && edad !== 0)) return;
-
+  if (!fecha || (edad === undefined || isNaN(edad))) return;
   const [y,m,d] = fecha.split('-');
   registros.push({ fecha, label: `${d}/${m}/${y.slice(2)}`, edad, talla, peso });
   registros.sort((a,b) => a.fecha.localeCompare(b.fecha));
-
   document.getElementById('reg-edad').value = '';
   document.getElementById('reg-talla').value = '';
   document.getElementById('reg-peso').value = '';
@@ -287,12 +275,9 @@ function addReg() {
 function renderRegList() {
   const list = document.getElementById('reg-list');
   if (!registros.length) { list.innerHTML = ''; return; }
-  list.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin:10px 0 6px">Mediciones registradas</div>' +
+  list.innerHTML = '<div class="section-title">Mediciones registradas</div>' +
     registros.slice().reverse().map(r =>
-      `<div class="reg-item">
-        <span>${r.label} · ${r.edad}m</span>
-        <span>${r.talla ? r.talla+'cm' : ''} ${r.peso ? r.peso+'kg' : ''}</span>
-      </div>`
+      `<div class="reg-item"><span>${r.label} · ${r.edad}m</span><span>${r.talla ? r.talla+'cm' : ''} ${r.peso ? r.peso+'kg' : ''}</span></div>`
     ).join('');
 }
 
@@ -301,11 +286,9 @@ function loadState(data) {
   if (data?.edad !== undefined) document.getElementById('edad').value = data.edad;
   if (data?.talla) document.getElementById('talla').value = data.talla;
   if (data?.peso) document.getElementById('peso').value = data.peso;
-  if (data?.registros) {
-    data.registros.forEach(r => registros.push(r));
-    renderRegList();
-  }
-  if (data?.edad !== undefined || data?.talla || data?.peso) evaluar();
+  if (data?.pc) document.getElementById('pc').value = data.pc;
+  if (data?.registros) { data.registros.forEach(r => registros.push(r)); renderRegList(); }
+  if (data?.edad !== undefined || data?.talla || data?.peso || data?.pc) evaluar();
 }
 window.getState = function() {
   return {
@@ -313,10 +296,17 @@ window.getState = function() {
     edad: document.getElementById('edad').value,
     talla: document.getElementById('talla').value,
     peso: document.getElementById('peso').value,
+    pc: document.getElementById('pc').value,
     registros: registros
   };
 };
 
 document.getElementById('fecha-reg').valueAsDate = new Date();
 renderChart();
+
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => { document.documentElement.style.setProperty(key, val); });
+  }
+});
 </script>

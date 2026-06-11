@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 const sb = createClient(
-  'https://lngaaaprvsnszepzzszb.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuZ2FhYXBydnNuc3plcHp6c3piIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODI3NjMwOCwiZXhwIjoyMDkzODUyMzA4fQ.T1slaeluwVcD_aPDJhk-IjPwmPtZ2Uhiw2VhgfNKzvY',
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } }
 )
 
@@ -15,8 +15,8 @@ const policies = [
 
 // Use REST API directly since we can't run arbitrary SQL via supabase-js
 async function main() {
-  const API_URL = 'https://lngaaaprvsnszepzzszb.supabase.co'
-  const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuZ2FhYXBydnNuc3plcHp6c3piIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODI3NjMwOCwiZXhwIjoyMDkzODUyMzA4fQ.T1slaeluwVcD_aPDJhk-IjPwmPtZ2Uhiw2VhgfNKzvY'
+  const API_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   // Approach: use pg client through Supabase API
   // Actually, let's try the supabase SQL endpoint directly

@@ -1,70 +1,78 @@
+<div class="artifact-header">
+  <div class="artifact-icon">🤱</div>
+  <div>
+    <div class="artifact-title">Seguimiento gestacional</div>
+    <div class="artifact-sub">Control prenatal</div>
+  </div>
+</div>
 
-<h2 class="sr-only">Calendario gestacional interactivo con cálculo de semanas, trimestres y fecha probable de parto</h2>
 <style>
-.gest-wrap{padding:1rem 0}
-.gest-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
-.gest-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+body{background:transparent;margin:0;padding:12px;font-family:system-ui,sans-serif}
+.artifact-header{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:12px;border-bottom:.5px solid var(--color-border-tertiary)}
+.artifact-icon{width:32px;height:32px;border-radius:8px;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;font-size:17px}
+.artifact-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.artifact-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:1px}
+.tab{font-size:12px;padding:5px 14px;border-radius:var(--border-radius-md);border:.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.tab.active{background:#7C3AED;color:#fff;border-color:transparent}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.gest-card{background:var(--color-background-primary);border:.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.gest-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
 .gest-big{font-size:22px;font-weight:500;color:var(--color-text-primary)}
-.gest-sub{font-size:12px;color:var(--color-text-tertiary);margin-top:2px}
-.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
 .stat-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px}
-.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px}
+.stat-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px}
 .stat-val{font-size:18px;font-weight:500;color:var(--color-text-primary)}
-.stat-sub{font-size:11px;color:var(--color-text-tertiary)}
-.trim-bar{display:flex;border-radius:var(--border-radius-md);overflow:hidden;height:20px;margin:10px 0}
-.trim-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;transition:width 0.4s}
+.stat-sub{font-size:10px;color:var(--color-text-tertiary)}
+.trim-bar{display:flex;border-radius:var(--border-radius-md);overflow:hidden;height:18px;margin:10px 0}
+.trim-seg{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:500;transition:width .4s}
 .milestones{margin-top:12px}
-.mile-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:8px}
-.mile-item{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
-.mile-week{font-size:11px;font-weight:500;min-width:32px;color:var(--color-text-tertiary)}
-.mile-dot{width:10px;height:10px;border-radius:50%;margin-top:2px;flex-shrink:0}
-.mile-text{font-size:12px;color:var(--color-text-secondary);line-height:1.4}
-.mile-item.past .mile-week{color:var(--color-text-primary)}
-.mile-item.current .mile-dot{box-shadow:0 0 0 3px rgba(55,138,221,0.25)}
-.progress-bar{height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;margin:8px 0}
-.progress-fill{height:100%;border-radius:3px;transition:width 0.4s}
+.mile-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px}
+.mile-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-secondary)}
+.mile-week{font-weight:500;min-width:30px;color:var(--color-text-tertiary);font-size:10px}
+.mile-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.progress-bar{height:5px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+.field-label{font-size:10px;color:var(--color-text-secondary);margin-bottom:3px;display:block}
+input,select,textarea{background:var(--color-background-secondary);border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);color:var(--color-text-primary);padding:5px 8px;font-size:12px;width:100%;box-sizing:border-box}
+.btn-primary{background:#7C3AED;color:#fff;border:none;border-radius:var(--border-radius-md);padding:5px 14px;font-size:11px;cursor:pointer}
+.btn-primary:hover{background:#6D28D9}
+.section-title{font-size:10px;font-weight:500;color:var(--color-text-tertiary);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 6px}
+.control-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;margin-bottom:6px;font-size:11px}
+.control-card .row{display:flex;gap:6px;margin-bottom:4px}
+.control-card .row:last-child{margin-bottom:0}
+.control-card .field{flex:1}
+.control-card .label{color:var(--color-text-tertiary);font-size:9px}
+.control-card .val{color:var(--color-text-primary);font-weight:500;font-size:11px}
+.ctrl-table{width:100%;border-collapse:collapse;font-size:10px}
+.ctrl-table th{text-align:left;color:var(--color-text-tertiary);padding:4px;border-bottom:.5px solid var(--color-border-tertiary);font-weight:500}
+.ctrl-table td{padding:4px;border-bottom:.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.ctrl-table tr:hover{background:var(--color-background-secondary)}
 </style>
 
-<div class="gest-wrap">
+<div class="tabs">
+  <button class="tab active" onclick="setGtab('gestacion',this)">Gestograma</button>
+  <button class="tab" onclick="setGtab('controles',this)">Controles</button>
+</div>
+
+<div id="gtab-gestacion">
   <div class="gest-card">
     <div class="gest-label">Fecha de última menstruación (FUM)</div>
-    <input type="date" id="fum-input" style="width:100%;margin-top:4px" />
+    <input type="date" id="fum-input" style="margin-top:4px" />
   </div>
 
   <div id="gest-result" style="display:none">
     <div class="stats-grid">
-      <div class="stat-box">
-        <div class="stat-label">Semana actual</div>
-        <div class="stat-val" id="sem-actual">—</div>
-        <div class="stat-sub" id="dias-actual">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Trimestre</div>
-        <div class="stat-val" id="trimestre">—</div>
-        <div class="stat-sub" id="trim-label">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Fecha probable de parto</div>
-        <div class="stat-val" style="font-size:14px" id="fpp">—</div>
-        <div class="stat-sub" id="dias-fpp">—</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-label">Progreso</div>
-        <div class="stat-val" id="pct">—</div>
-        <div class="stat-sub">de 40 semanas</div>
-      </div>
+      <div class="stat-box"><div class="stat-label">Semana actual</div><div class="stat-val" id="sem-actual">—</div><div class="stat-sub" id="dias-actual">—</div></div>
+      <div class="stat-box"><div class="stat-label">Trimestre</div><div class="stat-val" id="trimestre">—</div><div class="stat-sub" id="trim-label">—</div></div>
+      <div class="stat-box"><div class="stat-label">Fecha probable de parto</div><div class="stat-val" style="font-size:14px" id="fpp">—</div><div class="stat-sub" id="dias-fpp">—</div></div>
+      <div class="stat-box"><div class="stat-label">Progreso</div><div class="stat-val" id="pct">—</div><div class="stat-sub">de 40 semanas</div></div>
     </div>
-
-    <div class="progress-bar">
-      <div class="progress-fill" id="prog-fill" style="background:#378ADD;width:0%"></div>
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="background:#378ADD;width:0%"></div></div>
+    <div class="trim-bar">
+      <div class="trim-seg" style="background:#B5D4F4;width:33.3%;color:#0C447C">1° Trim</div>
+      <div class="trim-seg" style="background:#C0DD97;width:33.3%;color:#27500A">2° Trim</div>
+      <div class="trim-seg" style="background:#F4C0D1;width:33.4%;color:#72243E">3° Trim</div>
     </div>
-
-    <div class="trim-bar" id="trim-bar">
-      <div style="background:#B5D4F4;width:33.3%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#0C447C">1er trimestre</div>
-      <div style="background:#C0DD97;width:33.3%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#27500A">2do trimestre</div>
-      <div style="background:#F4C0D1;width:33.4%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#72243E">3er trimestre</div>
-    </div>
-
     <div class="milestones">
       <div class="mile-title">Hitos del embarazo</div>
       <div id="miles-list"></div>
@@ -72,80 +80,148 @@
   </div>
 </div>
 
+<div id="gtab-controles" style="display:none">
+  <div class="gest-card">
+    <div class="gest-label">Nuevo control</div>
+    <div class="stats-grid">
+      <div><span class="field-label">Fecha</span><input type="date" id="ctrl-fecha"/></div>
+      <div><span class="field-label">Semana</span><input type="number" id="ctrl-semana" placeholder="24" min="4" max="42"/></div>
+      <div><span class="field-label">Peso materno (kg)</span><input type="number" id="ctrl-peso" placeholder="65" step="0.1"/></div>
+      <div><span class="field-label">PA (mmHg)</span><input type="text" id="ctrl-pa" placeholder="120/80"/></div>
+      <div><span class="field-label">Altura uterina (cm)</span><input type="number" id="ctrl-au" placeholder="24" step="0.1"/></div>
+      <div><span class="field-label">FCF (lpm)</span><input type="number" id="ctrl-fcf" placeholder="140"/></div>
+      <div><span class="field-label">Mov. fetales</span><select id="ctrl-mf"><option value="">—</option><option value="si">Sí</option><option value="no">No</option></select></div>
+      <div><span class="field-label">Edema</span><select id="ctrl-edema"><option value="">—</option><option value="no">No</option><option value="leve">Leve</option><option value="moderado">Moderado</option><option value="severo">Severo</option></select></div>
+    </div>
+    <div style="margin-top:6px;display:flex;gap:6px">
+      <div style="flex:1"><span class="field-label">Observaciones</span><input type="text" id="ctrl-obs" placeholder="Opcional"/></div>
+      <div style="display:flex;align-items:flex-end"><button class="btn-primary" onclick="addControl()">Agregar</button></div>
+    </div>
+  </div>
+  <div id="controles-list"><div style="font-size:11px;color:var(--color-text-tertiary);text-align:center;padding:16px">No hay controles registrados</div></div>
+</div>
+
 <script>
 const MILESTONES = [
-  {w:4,  text:'Implantación. Test de embarazo positivo posible.'},
-  {w:6,  text:'Latido cardíaco detectable por ecografía transvaginal.'},
-  {w:8,  text:'Embrión mide ~16mm. Se forman todos los órganos principales.'},
-  {w:10, text:'Fin del período embrionario. Comienza el período fetal.'},
-  {w:12, text:'Ecografía del 1er trimestre. Translucencia nucal. Riesgo de Down.'},
-  {w:16, text:'Amniocentesis si está indicada. Movimientos fetales posibles.'},
-  {w:20, text:'Ecografía morfológica. Se puede conocer el sexo.'},
-  {w:24, text:'Viabilidad fetal fuera del útero con cuidados intensivos.'},
-  {w:28, text:'Inicio del 3er trimestre. Maduración pulmonar.'},
-  {w:32, text:'El bebé ocupa la posición cefálica. Control de movimientos.'},
-  {w:36, text:'Bebé a término temprano. Madurez pulmonar completa.'},
-  {w:38, text:'Término completo. El parto puede ocurrir en cualquier momento.'},
-  {w:40, text:'Fecha probable de parto (Regla de Naegele).'},
+  {w:4,text:'Implantación. Test de embarazo positivo posible.'},
+  {w:6,text:'Latido cardíaco detectable por ecografía transvaginal.'},
+  {w:8,text:'Embrión mide ~16mm. Se forman todos los órganos principales.'},
+  {w:10,text:'Fin del período embrionario. Comienza el período fetal.'},
+  {w:12,text:'Ecografía del 1er trimestre. Translucencia nucal.'},
+  {w:16,text:'Amniocentesis si está indicada. Movimientos fetales posibles.'},
+  {w:20,text:'Ecografía morfológica. Se puede conocer el sexo.'},
+  {w:24,text:'Viabilidad fetal fuera del útero con cuidados intensivos.'},
+  {w:28,text:'Inicio del 3er trimestre. Maduración pulmonar.'},
+  {w:32,text:'El bebé ocupa la posición cefálica. Control de movimientos.'},
+  {w:36,text:'Bebé a término temprano. Madurez pulmonar completa.'},
+  {w:38,text:'Término completo. El parto puede ocurrir en cualquier momento.'},
+  {w:40,text:'Fecha probable de parto (Regla de Naegele).'},
 ];
-
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const controles = [];
 
-function fmtDate(d) {
-  return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
-}
+function fmtDate(d){return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`}
 
-function loadState(data) {
-  if (data?.fum) {
-    document.getElementById('fum-input').value = data.fum;
-    document.getElementById('fum-input').dispatchEvent(new Event('change'));
-  }
+function setGtab(tab, el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  document.getElementById('gtab-gestacion').style.display=tab==='gestacion'?'block':'none';
+  document.getElementById('gtab-controles').style.display=tab==='controles'?'block':'none';
 }
-window.getState = function() { return { fum: document.getElementById('fum-input').value }; };
 
 document.getElementById('fum-input').addEventListener('change', function() {
   const fum = new Date(this.value + 'T00:00:00');
   if (isNaN(fum)) return;
-
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
+  const today = new Date(); today.setHours(0,0,0,0);
   const diffMs = today - fum;
   const diffDays = Math.floor(diffMs / 86400000);
   const semanas = Math.floor(diffDays / 7);
   const diasResto = diffDays % 7;
-
-  const fpp = new Date(fum);
-  fpp.setDate(fpp.getDate() + 280);
+  const fpp = new Date(fum); fpp.setDate(fpp.getDate() + 280);
   const diasFpp = Math.ceil((fpp - today) / 86400000);
-
   const pct = Math.min(Math.round((diffDays / 280) * 100), 100);
-
   let trim, trimLabel;
   if (semanas < 13) { trim = '1°'; trimLabel = 'Semanas 1–12'; }
   else if (semanas < 27) { trim = '2°'; trimLabel = 'Semanas 13–26'; }
   else { trim = '3°'; trimLabel = 'Semanas 27–40'; }
-
   document.getElementById('gest-result').style.display = 'block';
-  document.getElementById('sem-actual').textContent = `${semanas}`;
-  document.getElementById('dias-actual').textContent = `${diasResto} día${diasResto !== 1 ? 's' : ''} adicional${diasResto !== 1 ? 'es' : ''}`;
+  document.getElementById('sem-actual').textContent = semanas;
+  document.getElementById('dias-actual').textContent = `${diasResto} día${diasResto!==1?'s':''}`;
   document.getElementById('trimestre').textContent = trim;
   document.getElementById('trim-label').textContent = trimLabel;
   document.getElementById('fpp').textContent = fmtDate(fpp);
-  document.getElementById('dias-fpp').textContent = diasFpp > 0 ? `En ${diasFpp} días` : diasFpp === 0 ? 'Hoy' : `Hace ${Math.abs(diasFpp)} días`;
+  document.getElementById('dias-fpp').textContent = diasFpp>0?`En ${diasFpp} días`:diasFpp===0?'Hoy':`Hace ${Math.abs(diasFpp)} días`;
   document.getElementById('pct').textContent = `${pct}%`;
   document.getElementById('prog-fill').style.width = `${pct}%`;
-
-  const list = document.getElementById('miles-list');
-  list.innerHTML = MILESTONES.map(m => {
-    const past = semanas > m.w;
-    const current = semanas === m.w;
-    const dotColor = past ? '#639922' : current ? '#378ADD' : '#D3D1C7';
-    return `<div class="mile-item ${past?'past':''} ${current?'current':''}">
+  document.getElementById('miles-list').innerHTML = MILESTONES.map(m => {
+    const past=semanas>m.w,current=semanas===m.w;
+    const dotColor=past?'#639922':current?'#378ADD':'#D3D1C7';
+    return `<div class="mile-item${past?' past':''}${current?' current':''}">
       <span class="mile-week">Sem ${m.w}</span>
       <div class="mile-dot" style="background:${dotColor}"></div>
-      <span class="mile-text">${m.text}</span>
+      <span>${m.text}</span>
     </div>`;
   }).join('');
+});
+
+function addControl() {
+  const c = {
+    fecha: document.getElementById('ctrl-fecha').value,
+    semana: parseInt(document.getElementById('ctrl-semana').value),
+    peso: parseFloat(document.getElementById('ctrl-peso').value) || null,
+    pa: document.getElementById('ctrl-pa').value || null,
+    au: parseFloat(document.getElementById('ctrl-au').value) || null,
+    fcf: parseInt(document.getElementById('ctrl-fcf').value) || null,
+    mf: document.getElementById('ctrl-mf').value || null,
+    edema: document.getElementById('ctrl-edema').value || null,
+    obs: document.getElementById('ctrl-obs').value || null,
+  };
+  if (!c.fecha || !c.semana) return;
+  controles.push(c);
+  controles.sort((a,b) => a.semana - b.semana);
+  document.getElementById('ctrl-fecha').value = '';
+  document.getElementById('ctrl-semana').value = '';
+  document.getElementById('ctrl-peso').value = '';
+  document.getElementById('ctrl-pa').value = '';
+  document.getElementById('ctrl-au').value = '';
+  document.getElementById('ctrl-fcf').value = '';
+  document.getElementById('ctrl-mf').value = '';
+  document.getElementById('ctrl-edema').value = '';
+  document.getElementById('ctrl-obs').value = '';
+  renderControles();
+  notifyChange({ fum: document.getElementById('fum-input').value, controles });
+}
+
+function renderControles() {
+  const el = document.getElementById('controles-list');
+  if (!controles.length) { el.innerHTML = '<div style="font-size:11px;color:var(--color-text-tertiary);text-align:center;padding:16px">No hay controles registrados</div>'; return; }
+  el.innerHTML = '<div class="section-title">Historial de controles</div><div style="overflow-x:auto">' +
+    `<table class="ctrl-table">
+      <thead><tr><th>Sem</th><th>Fecha</th><th>Peso</th><th>PA</th><th>AU</th><th>FCF</th><th>MF</th><th>Edema</th><th>Obs</th></tr></thead>
+      <tbody>${controles.map(c => `<tr>
+        <td><strong>${c.semana}</strong></td>
+        <td>${c.fecha||'-'}</td>
+        <td>${c.peso?c.peso+'kg':'-'}</td>
+        <td>${c.pa||'-'}</td>
+        <td>${c.au?c.au+'cm':'-'}</td>
+        <td>${c.fcf||'-'}</td>
+        <td>${c.mf==='si'?'✅':c.mf==='no'?'❌':'-'}</td>
+        <td>${c.edema||'-'}</td>
+        <td style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.obs||'-'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>';
+}
+
+function loadState(data) {
+  if (data?.fum) { document.getElementById('fum-input').value = data.fum; document.getElementById('fum-input').dispatchEvent(new Event('change')); }
+  if (data?.controles) { data.controles.forEach(c => controles.push(c)); renderControles(); }
+}
+window.getState = function() { return { fum: document.getElementById('fum-input').value, controles: controles }; };
+
+document.getElementById('ctrl-fecha').valueAsDate = new Date();
+
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => { document.documentElement.style.setProperty(key, val); });
+  }
 });
 </script>

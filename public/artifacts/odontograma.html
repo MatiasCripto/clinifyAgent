@@ -1,25 +1,37 @@
+<div class="artifact-header">
+  <div class="artifact-icon">🦷</div>
+  <div>
+    <div class="artifact-title">Odontograma</div>
+    <div class="artifact-sub">Registro clínico · Numeración FDI</div>
+  </div>
+</div>
 
-<h2 class="sr-only">Odontograma interactivo con 32 piezas dentales seleccionables y estados clínicos</h2>
 <style>
-.odo-wrap{padding:1rem 0}
-.odo-title{font-size:13px;font-weight:500;color:var(--color-text-secondary);margin:0 0 12px;text-align:center}
-.odo-row{display:flex;justify-content:center;gap:3px;margin-bottom:4px}
-.tooth-wrap{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
-.tooth-num{font-size:9px;color:var(--color-text-tertiary);line-height:1}
-.tooth-svg{width:22px;height:26px;transition:transform 0.1s}
-.tooth-wrap:hover .tooth-svg{transform:scale(1.15)}
-.legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0}
-.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
-.leg-dot{width:10px;height:10px;border-radius:50%}
-.odo-sep{width:100%;height:0.5px;background:var(--color-border-tertiary);margin:6px 0}
-.selected-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:12px;font-size:13px;color:var(--color-text-secondary);text-align:center;min-height:38px}
-.state-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0}
-.state-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all 0.15s}
-.state-btn:hover{background:var(--color-background-secondary)}
-.state-btn.active{border-color:transparent;color:#fff}
+body { background: transparent; margin: 0; padding: 12px; font-family: system-ui, sans-serif; }
+.artifact-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.artifact-icon { width:32px; height:32px; border-radius:8px; background:var(--color-background-secondary); display:flex; align-items:center; justify-content:center; font-size:17px; }
+.artifact-title { font-size:14px; font-weight:500; color:var(--color-text-primary); }
+.artifact-sub { font-size:11px; color:var(--color-text-tertiary); margin-top:1px; }
+.odo-wrap{width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:10px}
+.leg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--color-text-secondary)}
+.leg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.arch-label{font-size:10px;color:var(--color-text-tertiary);text-align:center;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.odo-row{display:flex;justify-content:center;gap:2px;margin-bottom:2px}
+.tooth-wrap{display:flex;flex-direction:column;align-items:center;cursor:pointer;position:relative}
+.tooth-num{font-size:8px;color:var(--color-text-tertiary);line-height:1;margin:1px 0}
+.tooth-svg{width:22px;height:32px;transition:transform .15s}
+.tooth-wrap:hover .tooth-svg{transform:scale(1.12);z-index:2}
+.odo-divider{height:0.5px;background:var(--color-border-tertiary);margin:6px 0}
+.sel-panel{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;text-align:center}
+.sel-info{font-size:12px;color:var(--color-text-secondary);margin-bottom:8px}
+.state-btns{display:flex;flex-wrap:wrap;gap:5px;justify-content:center}
+.summary{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px;padding:8px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
+.sum-item{font-size:10px;display:flex;align-items:center;gap:3px;color:var(--color-text-secondary)}
+.sum-num{font-weight:600;min-width:14px;text-align:center}
 </style>
 
-<div class="odo-wrap">
+<div class="legenda">
   <div class="legend">
     <div class="leg-item"><div class="leg-dot" style="background:#B5D4F4"></div>Sano</div>
     <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Caries</div>
@@ -28,98 +40,130 @@
     <div class="leg-item"><div class="leg-dot" style="background:#CCC"></div>Ausente</div>
     <div class="leg-item"><div class="leg-dot" style="background:#F4C0D1"></div>Extraer</div>
   </div>
+</div>
 
-  <div class="odo-title">Superior derecha → Superior izquierda</div>
-  <div class="odo-row" id="row-top"></div>
-  <div class="odo-sep"></div>
-  <div class="odo-row" id="row-bot"></div>
-  <div class="odo-title" style="margin-top:4px">Inferior derecha → Inferior izquierda</div>
+<div class="arch-label">Superiores</div>
+<div class="odo-row" id="row-top"></div>
+<div class="odo-divider"></div>
+<div class="odo-row" id="row-bot"></div>
+<div class="arch-label">Inferiores</div>
 
-  <div class="selected-info" id="sel-info">Tocá un diente para ver o modificar su estado</div>
-
+<div class="sel-panel">
+  <div class="sel-info" id="sel-info">Tocá un diente para ver o modificar su estado</div>
   <div class="state-btns" id="state-btns" style="display:none">
-    <button class="state-btn" data-state="sano" style="--c:#185FA5">Sano</button>
-    <button class="state-btn" data-state="caries" style="--c:#A32D2D">Caries</button>
-    <button class="state-btn" data-state="obturado" style="--c:#854F0B">Obturado</button>
-    <button class="state-btn" data-state="corona" style="--c:#3B6D11">Corona</button>
-    <button class="state-btn" data-state="ausente" style="--c:#888780">Ausente</button>
-    <button class="state-btn" data-state="extraer" style="--c:#993556">Extraer</button>
+    <button class="state-btn" data-state="sano" style="color:#185FA5;border-color:#B5D4F4">Sano</button>
+    <button class="state-btn" data-state="caries" style="color:#A32D2D;border-color:#F7C1C1">Caries</button>
+    <button class="state-btn" data-state="obturado" style="color:#854F0B;border-color:#FAC775">Obturado</button>
+    <button class="state-btn" data-state="corona" style="color:#3B6D11;border-color:#C0DD97">Corona</button>
+    <button class="state-btn" data-state="ausente" style="color:#5F5E5A;border-color:#CCC">Ausente</button>
+    <button class="state-btn" data-state="extraer" style="color:#993556;border-color:#F4C0D1">Extraer</button>
   </div>
 </div>
 
+<div class="summary" id="summary"></div>
+
 <script>
 const STATES = {
-  sano:     {fill:'#B5D4F4', stroke:'#378ADD', label:'Sano',     c:'#185FA5'},
-  caries:   {fill:'#F7C1C1', stroke:'#E24B4A', label:'Caries',   c:'#A32D2D'},
-  obturado: {fill:'#FAC775', stroke:'#EF9F27', label:'Obturado', c:'#854F0B'},
-  corona:   {fill:'#C0DD97', stroke:'#639922', label:'Corona',   c:'#3B6D11'},
-  ausente:  {fill:'#D3D1C7', stroke:'#888780', label:'Ausente',  c:'#5F5E5A'},
-  extraer:  {fill:'#F4C0D1', stroke:'#D4537E', label:'Extraer',  c:'#993556'},
+  sano:     {fill:'#B5D4F4', stroke:'#378ADD', label:'Sano',     color:'#185FA5'},
+  caries:   {fill:'#F7C1C1', stroke:'#E24B4A', label:'Caries',   color:'#A32D2D'},
+  obturado: {fill:'#FAC775', stroke:'#EF9F27', label:'Obturado', color:'#854F0B'},
+  corona:   {fill:'#C0DD97', stroke:'#639922', label:'Corona',   color:'#3B6D11'},
+  ausente:  {fill:'#D3D1C7', stroke:'#888780', label:'Ausente',  color:'#5F5E5A'},
+  extraer:  {fill:'#F4C0D1', stroke:'#D4537E', label:'Extraer',  color:'#993556'},
 };
 
 const topNums = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
 const botNums = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
-
 const teeth = {};
 topNums.forEach(n => teeth[n] = 'sano');
 botNums.forEach(n => teeth[n] = 'sano');
-
 let selected = null;
 
-function toothSVG(num) {
-  const st = teeth[num];
-  const s = STATES[st];
-  const isMolar = [18,17,16,28,27,26,48,47,46,38,37,36].includes(num);
-  const isPremolar = [15,14,25,24,45,44,35,34].includes(num);
-  
-  let shape = '';
-  if (st === 'ausente') {
-    shape = `<line x1="3" y1="3" x2="19" y2="23" stroke="${s.stroke}" stroke-width="1.5"/>
-             <line x1="19" y1="3" x2="3" y2="23" stroke="${s.stroke}" stroke-width="1.5"/>`;
-  } else if (isMolar) {
-    shape = `<rect x="2" y="3" width="18" height="20" rx="3" fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.2"/>
-             <rect x="6" y="7" width="10" height="12" rx="2" fill="${s.stroke}" opacity="0.2"/>`;
-  } else if (isPremolar) {
-    shape = `<rect x="3" y="4" width="16" height="18" rx="4" fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.2"/>
-             <line x1="11" y1="6" x2="11" y2="20" stroke="${s.stroke}" stroke-width="0.8" opacity="0.4"/>`;
-  } else {
-    shape = `<ellipse cx="11" cy="13" rx="8" ry="10" fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.2"/>`;
+function getToothType(num) {
+  const n = num % 10;
+  if (num >= 11 && num <= 18) {
+    if (n <= 2) return 'incisor';
+    if (n === 3) return 'canine';
+    if (n <= 5) return 'premolar';
+    return 'molar';
   }
-  
-  const sel = selected === num ? `<rect x="0" y="0" width="22" height="26" rx="4" fill="none" stroke="#7F77DD" stroke-width="2"/>` : '';
-  
-  return `<svg class="tooth-svg" viewBox="0 0 22 26" xmlns="http://www.w3.org/2000/svg">${shape}${sel}</svg>`;
+  if (num >= 21 && num <= 28) {
+    if (n <= 2) return 'incisor';
+    if (n === 3) return 'canine';
+    if (n <= 5) return 'premolar';
+    return 'molar';
+  }
+  if (num >= 31 && num <= 38) {
+    if (n <= 2) return 'incisor';
+    if (n === 3) return 'canine';
+    if (n <= 5) return 'premolar';
+    return 'molar';
+  }
+  if (num >= 41 && num <= 48) {
+    if (n <= 2) return 'incisor';
+    if (n === 3) return 'canine';
+    if (n <= 5) return 'premolar';
+    return 'molar';
+  }
+  return 'molar';
+}
+function isUpper(num) { return (num >= 11 && num <= 18) || (num >= 21 && num <= 28); }
+
+const TOOTH_PATHS = {
+  // Crown at top, root at bottom. Upper teeth get flipped via SVG transform.
+  incisor: "M6,2 L18,2 Q18,10 16,14 Q14,24 12,32 Q10,24 8,14 Q6,10 6,2 Z",
+  canine:  "M2,4 L12,0 L22,4 Q22,10 19,14 Q16,24 12,32 Q8,24 5,14 Q2,10 2,4 Z",
+  premolar:"M2,1 L2,5 Q6,6 8,4 L16,4 Q18,6 22,5 L22,1 Q22,10 19,14 Q16,24 12,32 Q8,24 5,14 Q2,10 2,1 Z",
+  molar:   "M1,2 L1,6 Q5,7 7,5 Q9,8 12,6 Q15,8 17,5 Q19,7 23,6 L23,2 Q23,10 20,14 Q17,24 12,32 Q7,24 4,14 Q1,10 1,2 Z"
+};
+
+function toothSVG(num) {
+  const s = STATES[teeth[num]];
+  const type = getToothType(num);
+  const upper = isUpper(num);
+  const path = TOOTH_PATHS[type];
+
+  let inner;
+  if (teeth[num] === 'ausente') {
+    inner = `<line x1="4" y1="4" x2="20" y2="28" stroke="${s.stroke}" stroke-width="1.5" stroke-linecap="round"/>
+             <line x1="20" y1="4" x2="4" y2="28" stroke="${s.stroke}" stroke-width="1.5" stroke-linecap="round"/>`;
+  } else {
+    const flip = upper ? ' transform="translate(0,34) scale(1,-1)"' : '';
+    inner = `<path d="${path}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.2"${flip}/>`;
+  }
+
+  const selMark = selected === num
+    ? `<rect x="0" y="0" width="24" height="34" rx="4" fill="none" stroke="#7C3AED" stroke-width="2"/>`
+    : '';
+
+  return `<svg class="tooth-svg" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">${inner}${selMark}</svg>`;
 }
 
 function renderRow(rowId, nums) {
-  const row = document.getElementById(rowId);
-  row.innerHTML = nums.map(n => `
-    <div class="tooth-wrap" data-num="${n}" onclick="selectTooth(${n})">
+  document.getElementById(rowId).innerHTML = nums.map(n =>
+    `<div class="tooth-wrap" onclick="selectTooth(${n})">
       <div class="tooth-num">${n}</div>
       ${toothSVG(n)}
-    </div>
-  `).join('');
+    </div>`
+  ).join('');
 }
 
-function renderAll() {
-  renderRow('row-top', topNums);
-  renderRow('row-bot', botNums);
-}
+function renderAll() { renderRow('row-top', topNums); renderRow('row-bot', botNums); renderSummary(); }
 
 function selectTooth(num) {
   selected = num;
   renderAll();
   const st = STATES[teeth[num]];
-  document.getElementById('sel-info').innerHTML = `<strong>Pieza ${num}</strong> — Estado actual: <span style="color:${st.c};font-weight:500">${st.label}</span>`;
-  
+  document.getElementById('sel-info').innerHTML =
+    `<strong>Pieza ${num}</strong> — <span style="color:${st.color};font-weight:500">${st.label}</span>`;
   const btns = document.getElementById('state-btns');
   btns.style.display = 'flex';
   btns.querySelectorAll('.state-btn').forEach(b => {
     const s = b.dataset.state;
     const active = teeth[num] === s;
     b.className = 'state-btn' + (active ? ' active' : '');
-    b.style.background = active ? STATES[s].c : '';
-    b.style.borderColor = active ? STATES[s].c : '';
+    if (active) { b.style.background = STATES[s].color; b.style.color = '#fff'; }
+    else { b.style.background = ''; b.style.color = STATES[s].color; }
   });
 }
 
@@ -128,12 +172,34 @@ document.getElementById('state-btns').addEventListener('click', e => {
   if (!btn || selected === null) return;
   teeth[selected] = btn.dataset.state;
   selectTooth(selected);
-          notifyChange({ teeth });
+  notifyChange({ teeth });
 });
 
+function renderSummary() {
+  const counts = {};
+  Object.keys(STATES).forEach(k => counts[k] = 0);
+  Object.values(teeth).forEach(s => { if (counts[s] !== undefined) counts[s]++; });
+  const total = Object.keys(teeth).length;
+  document.getElementById('summary').innerHTML =
+    Object.entries(STATES).map(([k, v]) =>
+      `<span class="sum-item"><span class="sum-num" style="color:${v.color}">${counts[k]}</span>${v.label}</span>`
+    ).join('') +
+    `<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">· ${total} piezas</span>`;
+}
+
 renderAll();
-	function loadState(data) {
-	  if (data?.teeth) { Object.assign(teeth, data.teeth); renderAll(); }
-	}
-	window.getState = function() { return { teeth: teeth }; };
+
+function loadState(data) {
+  if (data?.teeth) { Object.assign(teeth, data.teeth); renderAll(); }
+}
+window.getState = function() { return { teeth: teeth }; };
+
+// Theme listener
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => {
+      document.documentElement.style.setProperty(key, val);
+    });
+  }
+});
 </script>

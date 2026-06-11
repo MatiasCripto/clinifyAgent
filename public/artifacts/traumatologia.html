@@ -1,24 +1,35 @@
+<div class="artifact-header">
+  <div class="artifact-icon">🦴</div>
+  <div>
+    <div class="artifact-title">Mapa óseo</div>
+    <div class="artifact-sub">Registro traumatológico</div>
+  </div>
+</div>
 
-<h2 class="sr-only">Esqueleto interactivo para traumatología con zonas óseas seleccionables</h2>
 <style>
-.trau-wrap{padding:1rem 0;display:flex;flex-direction:column;align-items:center}
-.bone{cursor:pointer;transition:opacity 0.15s}
+body { background:transparent; margin:0; padding:12px; font-family:system-ui,sans-serif; }
+.artifact-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:12px; border-bottom:0.5px solid var(--color-border-tertiary); }
+.artifact-icon { width:32px; height:32px; border-radius:8px; background:var(--color-background-secondary); display:flex; align-items:center; justify-content:center; font-size:17px; }
+.artifact-title { font-size:14px; font-weight:500; color:var(--color-text-primary); }
+.artifact-sub { font-size:11px; color:var(--color-text-tertiary); margin-top:1px; }
+.trau-wrap{display:flex;flex-direction:column;align-items:center}
+.legend{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:8px 0}
+.leg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--color-text-secondary)}
+.leg-dot{width:9px;height:9px;border-radius:50%}
+.bone{cursor:pointer;transition:opacity 0.15s;fill:#E8DFD0;stroke:#B4A88A;stroke-width:0.8}
 .bone:hover{opacity:0.6}
-.trau-legend{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:8px 0}
-.leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary)}
-.leg-dot{width:10px;height:10px;border-radius:50%}
-.trau-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:13px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:300px}
-.diag-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0;max-width:300px}
-.diag-btn{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
+.trau-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 14px;margin-top:10px;font-size:12px;color:var(--color-text-secondary);text-align:center;width:100%;max-width:300px}
+.diag-btns{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:10px 0;max-width:300px}
+.diag-btn{font-size:10px;padding:4px 10px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer}
 .diag-btn:hover{background:var(--color-background-secondary)}
 .diag-btn.active{color:#fff;border-color:transparent}
 .bone-list{margin-top:10px;width:100%;max-width:300px}
-.bone-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
-.bone-badge{font-size:10px;padding:2px 8px;border-radius:var(--border-radius-md);color:#fff}
+.bone-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-primary)}
+.bone-badge{font-size:10px;padding:2px 8px;border-radius:6px;color:#fff}
 </style>
 
 <div class="trau-wrap">
-  <div class="trau-legend">
+  <div class="legend">
     <div class="leg-item"><div class="leg-dot" style="background:#E8DFD0"></div>Normal</div>
     <div class="leg-item"><div class="leg-dot" style="background:#F7C1C1"></div>Fractura</div>
     <div class="leg-item"><div class="leg-dot" style="background:#FAC775"></div>Esguince</div>
@@ -27,37 +38,36 @@
   </div>
 
   <svg width="200" height="340" viewBox="0 0 200 340" xmlns="http://www.w3.org/2000/svg">
-    <ellipse id="b-skull" class="bone" cx="100" cy="22" rx="28" ry="20" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1.2" onclick="selectBone('Cráneo')"/>
-    <rect id="b-mandible" class="bone" x="82" y="38" width="36" height="10" rx="3" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Mandíbula')"/>
-    <rect id="b-spine-c" class="bone" x="93" y="50" width="14" height="20" rx="2" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Columna cervical')"/>
-    <rect id="b-clavicle-l" class="bone" x="48" y="68" width="42" height="7" rx="3" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Clavícula izquierda')"/>
-    <rect id="b-clavicle-r" class="bone" x="110" y="68" width="42" height="7" rx="3" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Clavícula derecha')"/>
-    <rect id="b-sternum" class="bone" x="88" y="70" width="24" height="50" rx="3" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Esternón')"/>
-    <rect id="b-spine-t" class="bone" x="94" y="72" width="12" height="45" rx="2" fill="#D3C9B8" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Columna torácica')"/>
-    <path id="b-ribs-l" class="bone" d="M88 75 Q60 90 58 115 Q70 118 88 115 Z" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Costillas izquierdas')"/>
-    <path id="b-ribs-r" class="bone" d="M112 75 Q140 90 142 115 Q130 118 112 115 Z" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Costillas derechas')"/>
-    <rect id="b-humerus-l" class="bone" x="42" y="76" width="14" height="60" rx="5" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Húmero izquierdo')"/>
-    <rect id="b-humerus-r" class="bone" x="144" y="76" width="14" height="60" rx="5" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Húmero derecho')"/>
-    <rect id="b-radius-l" class="bone" x="38" y="138" width="10" height="45" rx="4" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Radio izquierdo')"/>
-    <rect id="b-ulna-l" class="bone" x="50" y="138" width="8" height="45" rx="4" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Cúbito izquierdo')"/>
-    <rect id="b-radius-r" class="bone" x="142" y="138" width="10" height="45" rx="4" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Radio derecho')"/>
-    <rect id="b-ulna-r" class="bone" x="154" y="138" width="8" height="45" rx="4" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Cúbito derecho')"/>
-    <ellipse id="b-hand-l" class="bone" cx="46" cy="192" rx="14" ry="10" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Mano izquierda')"/>
-    <ellipse id="b-hand-r" class="bone" cx="154" cy="192" rx="14" ry="10" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Mano derecha')"/>
-    <rect id="b-spine-l" class="bone" x="94" y="118" width="12" height="30" rx="2" fill="#D3C9B8" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Columna lumbar')"/>
-    <path id="b-pelvis" class="bone" d="M72 148 Q100 138 128 148 L132 175 Q100 185 68 175 Z" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Pelvis')"/>
-    <rect id="b-femur-l" class="bone" x="74" y="178" width="20" height="80" rx="7" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Fémur izquierdo')"/>
-    <rect id="b-femur-r" class="bone" x="106" y="178" width="20" height="80" rx="7" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Fémur derecho')"/>
-    <ellipse id="b-knee-l" class="bone" cx="84" cy="262" rx="12" ry="9" fill="#D3C9B8" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Rodilla izquierda')"/>
-    <ellipse id="b-knee-r" class="bone" cx="116" cy="262" rx="12" ry="9" fill="#D3C9B8" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Rodilla derecha')"/>
-    <rect id="b-tibia-l" class="bone" x="78" y="272" width="14" height="55" rx="5" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Tibia izquierda')"/>
-    <rect id="b-tibia-r" class="bone" x="108" y="272" width="14" height="55" rx="5" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Tibia derecha')"/>
-    <ellipse id="b-foot-l" class="bone" cx="80" cy="332" rx="18" ry="8" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Pie izquierdo')"/>
-    <ellipse id="b-foot-r" class="bone" cx="120" cy="332" rx="18" ry="8" fill="#E8DFD0" stroke="#B4A88A" stroke-width="1" onclick="selectBone('Pie derecho')"/>
+    <path id="b-skull" class="bone" d="M72,6 C72,-6 128,-6 128,6 C128,20 130,30 120,38 C116,42 112,44 112,46 L88,46 C88,44 84,42 80,38 C70,30 72,20 72,6 Z" onclick="selectBone('Cráneo')"/>
+    <path id="b-mandible" class="bone" d="M78,44 L122,44 C120,52 112,56 100,56 C88,56 80,52 78,44 Z" onclick="selectBone('Mandíbula')"/>
+    <path id="b-spine-c" class="bone" d="M94,50 C92,50 90,54 90,58 L90,68 C90,72 92,74 94,74 L100,74 C102,74 104,72 104,68 L104,58 C104,54 102,50 100,50 Z" onclick="selectBone('Columna cervical')"/>
+    <path id="b-clavicle-l" class="bone" d="M50,66 C44,64 38,66 34,70 C30,74 28,78 28,80 L34,78 C38,74 44,72 50,70 Z" onclick="selectBone('Clavícula izquierda')"/>
+    <path id="b-clavicle-r" class="bone" d="M150,66 C156,64 162,66 166,70 C170,74 172,78 172,80 L166,78 C162,74 156,72 150,70 Z" onclick="selectBone('Clavícula derecha')"/>
+    <path id="b-sternum" class="bone" d="M90,68 C88,68 86,72 86,76 L86,112 C86,116 88,118 90,118 L104,118 C106,116 108,112 108,108 L108,76 C108,72 106,68 104,68 Z" onclick="selectBone('Esternón')"/>
+    <path id="b-spine-t" class="bone" d="M94,76 C92,76 90,80 90,84 L90,118 C90,122 92,124 94,124 L100,124 C102,122 104,118 104,114 L104,84 C104,80 102,76 100,76 Z" onclick="selectBone('Columna torácica')"/>
+    <path id="b-ribs-l" class="bone" d="M86,76 C70,72 56,80 52,90 C48,100 50,110 56,116 C60,120 66,120 68,116 C64,110 60,100 62,92 C64,84 74,78 86,80 Z" onclick="selectBone('Costillas izquierdas')"/>
+    <path id="b-ribs-r" class="bone" d="M108,76 C124,72 138,80 142,90 C146,100 144,110 138,116 C134,120 128,120 126,116 C130,110 134,100 132,92 C130,84 120,78 108,80 Z" onclick="selectBone('Costillas derechas')"/>
+    <path id="b-humerus-l" class="bone" d="M36,74 C32,74 30,78 30,84 C30,96 32,110 34,124 C36,132 42,132 46,128 C48,118 48,100 48,88 C48,80 44,74 36,74 Z" onclick="selectBone('Húmero izquierdo')"/>
+    <path id="b-humerus-r" class="bone" d="M158,74 C162,74 164,78 164,84 C164,96 162,110 160,124 C158,132 152,132 148,128 C146,118 146,100 146,88 C146,80 150,74 158,74 Z" onclick="selectBone('Húmero derecho')"/>
+    <path id="b-radius-l" class="bone" d="M42,130 C38,130 36,134 36,140 C36,162 38,178 40,188 C42,194 48,194 52,190 C50,182 48,168 48,150 C48,140 46,130 42,130 Z" onclick="selectBone('Radio izquierdo')"/>
+    <path id="b-ulna-l" class="bone" d="M36,132 L32,134 L32,144 L34,192 C36,198 42,198 44,196 C42,190 40,170 40,148 C40,140 38,132 36,132 Z" onclick="selectBone('Cúbito izquierdo')"/>
+    <path id="b-radius-r" class="bone" d="M152,130 C156,130 158,134 158,140 C158,162 156,178 154,188 C152,194 146,194 142,190 C144,182 146,168 146,150 C146,140 148,130 152,130 Z" onclick="selectBone('Radio derecho')"/>
+    <path id="b-ulna-r" class="bone" d="M158,132 L162,134 L162,144 L160,192 C158,198 152,198 150,196 C152,190 154,170 154,148 C154,140 156,132 158,132 Z" onclick="selectBone('Cúbito derecho')"/>
+    <path id="b-hand-l" class="bone" d="M34,194 C28,194 26,200 26,206 C26,212 30,214 34,214 L56,214 C60,214 62,212 62,208 C62,202 58,198 54,194 Z" onclick="selectBone('Mano izquierda')"/>
+    <path id="b-hand-r" class="bone" d="M160,194 C166,194 168,200 168,206 C168,212 164,214 160,214 L138,214 C134,214 132,212 132,208 C132,202 136,198 140,194 Z" onclick="selectBone('Mano derecha')"/>
+    <path id="b-spine-l" class="bone" d="M94,126 C92,126 90,130 90,134 L90,156 C90,160 92,162 94,162 L100,162 C102,160 104,156 104,152 L104,134 C104,130 102,126 100,126 Z" onclick="selectBone('Columna lumbar')"/>
+    <path id="b-pelvis" class="bone" d="M68,148 C64,146 60,150 58,158 C56,166 58,174 64,178 C72,182 80,178 84,172 C88,170 92,170 96,172 C100,178 108,182 116,178 C122,174 124,166 122,158 C120,150 116,146 112,148 C104,152 96,156 90,158 C84,156 76,152 68,148 Z" onclick="selectBone('Pelvis')"/>
+    <path id="b-femur-l" class="bone" d="M74,178 C70,178 68,184 68,192 C68,210 70,240 72,252 C74,260 80,260 84,252 C86,240 88,210 88,192 C88,184 84,178 74,178 Z" onclick="selectBone('Fémur izquierdo')"/>
+    <path id="b-femur-r" class="bone" d="M120,178 C124,178 126,184 126,192 C126,210 124,240 122,252 C120,260 114,260 110,252 C108,240 106,210 106,192 C106,184 110,178 120,178 Z" onclick="selectBone('Fémur derecho')"/>
+    <path id="b-knee-l" class="bone" d="M72,254 C68,254 66,258 66,262 C66,268 72,272 78,272 C84,272 88,268 88,264 C88,258 84,254 80,254 Z" onclick="selectBone('Rodilla izquierda')"/>
+    <path id="b-knee-r" class="bone" d="M118,254 C122,254 124,258 124,262 C124,268 118,272 112,272 C106,272 102,268 102,264 C102,258 106,254 110,254 Z" onclick="selectBone('Rodilla derecha')"/>
+    <path id="b-tibia-l" class="bone" d="M74,274 C70,274 68,278 68,286 C68,302 70,318 72,326 C74,332 80,332 84,328 C86,320 88,304 88,290 C88,280 84,274 74,274 Z" onclick="selectBone('Tibia izquierda')"/>
+    <path id="b-tibia-r" class="bone" d="M120,274 C124,274 126,278 126,286 C126,302 124,318 122,326 C120,332 114,332 110,328 C108,320 106,304 106,290 C106,280 110,274 120,274 Z" onclick="selectBone('Tibia derecha')"/>
+    <path id="b-foot-l" class="bone" d="M66,332 C62,332 56,338 56,344 C56,350 60,352 66,352 L94,352 C102,352 104,348 104,342 C104,336 100,332 94,332 Z" onclick="selectBone('Pie izquierdo')"/>
+    <path id="b-foot-r" class="bone" d="M128,332 C132,332 138,338 138,344 C138,350 134,352 128,352 L100,352 C92,352 90,348 90,342 C90,336 94,332 100,332 Z" onclick="selectBone('Pie derecho')"/>
   </svg>
 
   <div class="trau-info" id="trau-info">Tocá un hueso para registrar un diagnóstico</div>
-
   <div class="diag-btns" id="diag-btns" style="display:none">
     <button class="diag-btn" data-diag="fractura" data-color="#A32D2D" data-fill="#F7C1C1">Fractura</button>
     <button class="diag-btn" data-diag="esguince" data-color="#854F0B" data-fill="#FAC775">Esguince</button>
@@ -65,20 +75,18 @@
     <button class="diag-btn" data-diag="inflamacion" data-color="#993556" data-fill="#F4C0D1">Inflamación</button>
     <button class="diag-btn" data-diag="normal" data-color="#5F5E5A" data-fill="#E8DFD0">Normal</button>
   </div>
-
   <div class="bone-list" id="bone-list"></div>
 </div>
 
 <script>
 const boneData = {};
 const DIAG = {
-  fractura:    {label:'Fractura',    color:'#A32D2D', fill:'#F7C1C1'},
-  esguince:    {label:'Esguince',    color:'#854F0B', fill:'#FAC775'},
-  luxacion:    {label:'Luxación',    color:'#185FA5', fill:'#B5D4F4'},
-  inflamacion: {label:'Inflamación', color:'#993556', fill:'#F4C0D1'},
-  normal:      {label:'Normal',      color:'#5F5E5A', fill:'#E8DFD0'},
+  fractura:{label:'Fractura',color:'#A32D2D',fill:'#F7C1C1'},
+  esguince:{label:'Esguince',color:'#854F0B',fill:'#FAC775'},
+  luxacion:{label:'Luxación',color:'#185FA5',fill:'#B5D4F4'},
+  inflamacion:{label:'Inflamación',color:'#993556',fill:'#F4C0D1'},
+  normal:{label:'Normal',color:'#5F5E5A',fill:'#E8DFD0'},
 };
-
 const boneToId = {
   'Cráneo':'b-skull','Mandíbula':'b-mandible','Columna cervical':'b-spine-c',
   'Clavícula izquierda':'b-clavicle-l','Clavícula derecha':'b-clavicle-r',
@@ -94,10 +102,8 @@ const boneToId = {
   'Tibia izquierda':'b-tibia-l','Tibia derecha':'b-tibia-r',
   'Pie izquierdo':'b-foot-l','Pie derecho':'b-foot-r',
 };
-
 let selBone = null;
-
-function selectBone(name) {
+function selectBone(name){
   selBone = name;
   const cur = boneData[name];
   document.getElementById('trau-info').innerHTML = cur
@@ -113,7 +119,6 @@ function selectBone(name) {
     b.style.color = active ? '#fff' : '';
   });
 }
-
 document.getElementById('diag-btns').addEventListener('click', e => {
   const btn = e.target.closest('.diag-btn');
   if (!btn || !selBone) return;
@@ -122,30 +127,27 @@ document.getElementById('diag-btns').addEventListener('click', e => {
   else boneData[selBone] = d;
   const el = document.getElementById(boneToId[selBone]);
   if (el) el.setAttribute('fill', DIAG[d].fill);
-  selectBone(selBone);
-  renderList();
+  selectBone(selBone); renderList();
 });
-
-function renderList() {
+function renderList(){
   const list = document.getElementById('bone-list');
   const entries = Object.entries(boneData);
   if (!entries.length) { list.innerHTML = ''; return; }
-  list.innerHTML = '<div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px">Diagnósticos registrados</div>' +
-    entries.map(([b,d]) => `
-      <div class="bone-row">
-        <span>${b}</span>
-        <span class="bone-badge" style="background:${DIAG[d].color}">${DIAG[d].label}</span>
-      </div>
-    `).join('');
+  list.innerHTML = '<div class="section-title">Diagnósticos registrados</div>' +
+    entries.map(([b,d]) => `<div class="bone-row"><span>${b}</span><span class="bone-badge" style="background:${DIAG[d].color}">${DIAG[d].label}</span></div>`).join('');
 }
 function loadState(data) {
   if (data?.boneData) {
     Object.assign(boneData, data.boneData);
-    Object.entries(boneData).forEach(([b, d]) => {
-      const el = document.getElementById(boneToId[b]); if(el) el.setAttribute('fill', DIAG[d].fill);
-    });
+    Object.entries(boneData).forEach(([b, d]) => { const el = document.getElementById(boneToId[b]); if(el) el.setAttribute('fill', DIAG[d].fill); });
     renderList();
   }
 }
 window.getState = function() { return { boneData: boneData }; };
+
+window.addEventListener('message', function(e) {
+  if (e.data?.type === 'artifact:theme' && e.data?.variables) {
+    Object.entries(e.data.variables).forEach(([key, val]) => { document.documentElement.style.setProperty(key, val); });
+  }
+});
 </script>
